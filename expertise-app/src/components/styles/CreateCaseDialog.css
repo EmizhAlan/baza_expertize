@@ -1,0 +1,254 @@
+.dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.dialog-window {
+    background: white;
+    border: 1px solid #999;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    width: 900px;
+    max-width: 95vw;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.dialog-header {
+    background: white;
+    padding: 8px 12px;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.dialog-header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #666;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-btn:hover {
+    background-color: #e81123;
+    color: white;
+}
+
+.dialog-tabs {
+    display: flex;
+    gap: 2px;
+    padding: 8px 12px 0;
+    border-bottom: 1px solid #ddd;
+}
+
+.dialog-tab {
+    padding: 6px 16px;
+    border: 1px solid #ddd;
+    border-bottom: none;
+    background: #f0f0f0;
+    cursor: pointer;
+    font-size: 13px;
+    border-radius: 4px 4px 0 0;
+}
+
+.dialog-tab.active {
+    background: white;
+    border-bottom: 1px solid white;
+    margin-bottom: -1px;
+    font-weight: 600;
+}
+
+.dialog-subtabs {
+    display: flex;
+    gap: 2px;
+    padding: 8px 12px 0;
+    background: #f9f9f9;
+}
+
+.dialog-subtab {
+    padding: 4px 12px;
+    border: 1px solid #ddd;
+    background: #f0f0f0;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.dialog-subtab.active {
+    background: white;
+    font-weight: 600;
+}
+
+.dialog-content {
+    padding: 15px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.form-row {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 12px;
+    align-items: flex-end;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.form-group.full-width {
+    flex: 1 1 100%;
+}
+
+.form-group label {
+    font-size: 12px;
+    color: #333;
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    padding: 6px 8px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 13px;
+    font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #0078d4;
+}
+
+.checkbox-group {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    margin: 0;
+}
+
+.btn-pkk {
+    padding: 6px 12px;
+    background: #e9ecef;
+    border: 1px solid #adb5bd;
+    cursor: pointer;
+    font-size: 12px;
+    margin-bottom: 1px;
+}
+
+.btn-small {
+    padding: 6px 12px;
+    background: #e9ecef;
+    border: 1px solid #adb5bd;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.form-section {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #ddd;
+}
+
+.radio-group {
+    margin-bottom: 15px;
+}
+
+.radio-label {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #333;
+}
+
+.radio-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-right: 20px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.radio-item input[type="radio"] {
+    margin: 0;
+}
+
+.work-checkbox {
+    display: flex;
+    justify-content: flex-end;
+    gap: 5px;
+    color: #c00;
+}
+
+.dialog-footer {
+    padding: 12px 15px;
+    border-top: 1px solid #ddd;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.btn-ok,
+.btn-cancel {
+    padding: 6px 24px;
+    font-size: 13px;
+    cursor: pointer;
+    border: 1px solid #adb5bd;
+}
+
+.btn-ok {
+    background: #e9ecef;
+}
+
+.btn-ok:hover {
+    background: #dee2e6;
+}
+
+.btn-cancel {
+    background: white;
+}
+
+.btn-cancel:hover {
+    background: #f8f9fa;
+}

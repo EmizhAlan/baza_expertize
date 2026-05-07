@@ -1,0 +1,253 @@
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #f0f0f0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.login-card {
+    background: white;
+    border: 1px solid #999;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    width: 650px;
+    max-width: 95vw;
+    position: relative;
+}
+
+/* Title Bar */
+.title-bar {
+    background: white;
+    padding: 8px 12px;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.title-bar h1 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.title-bar .close-btn {
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: #666;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+.title-bar .close-btn:hover {
+    background-color: #e81123;
+    color: white;
+}
+
+/* Main Content - Two Column Layout */
+.login-content {
+    display: flex;
+    padding: 20px;
+    gap: 30px;
+}
+
+/* Logo Section */
+.logo-section {
+    flex: 0 0 200px;
+
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.logo-placeholder {
+    width: 150px;
+    height: 120px;
+    background: linear-gradient(135deg, #2d7a4f 0%, #4a9f6e 50%, #6b6b6b 100%);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+    padding: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.logo-placeholder .logo-icon {
+    font-size: 40px;
+    margin-bottom: 8px;
+}
+
+.logo-placeholder .logo-text {
+    font-size: 14px;
+    line-height: 1.2;
+}
+
+.logo-image {
+    max-width: 25px;
+    height: auto;
+    object-fit: contain;
+}
+
+.logo-image2 {
+    max-width: 200px;
+}
+
+/* Form Section */
+.form-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.form-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.form-row label {
+    min-width: 80px;
+    font-size: 13px;
+    color: #333;
+    font-weight: 500;
+}
+
+.form-row input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 13px;
+
+}
+
+.form-row input:focus {
+    outline: none;
+    border-color: #0078d4;
+    box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
+}
+
+.form-row input:disabled {
+    background-color: #f5f5f5;
+    cursor: not-allowed;
+}
+
+/* Section Title */
+.section-title {
+    font-size: 13px;
+    color: #333;
+    margin: 15px 0 8px 0;
+    font-weight: 600;
+}
+
+/* Error Message */
+.error-message {
+    background-color: #fde8e8;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    padding: 10px 15px;
+    border-radius: 4px;
+    margin: 0 20px 15px 20px;
+    font-size: 13px;
+}
+
+/* Buttons Section */
+.button-section {
+    padding: 15px 20px 20px 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    border-top: 1px solid #eee;
+}
+
+.btn {
+    padding: 8px 24px;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.btn-ok {
+    background-color: white;
+    border: 1px solid #adb5bd;
+    color: #333;
+}
+
+.btn-ok:hover:not(:disabled) {
+    background-color: #1E5945;
+    color: white;
+}
+
+.btn-ok:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 120, 212, 0.3);
+}
+
+.btn-cancel {
+    background-color: white;
+    border: 1px solid #adb5bd;
+    color: #333;
+}
+
+.btn-cancel:hover:not(:disabled) {
+    background-color: #1E5945;
+    color: white;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Small text helper */
+.form-helper {
+    font-size: 11px;
+    color: #666;
+    margin-top: 2px;
+    margin-left: 90px;
+}
+
+/* Responsive */
+@media (max-width: 700px) {
+    .login-content {
+        flex-direction: column;
+    }
+    
+    .logo-section {
+        flex: none;
+        margin-bottom: 20px;
+    }
+    
+    .form-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    .form-row label {
+        min-width: auto;
+    }
+    
+    .form-helper {
+        margin-left: 0;
+    }
+}
