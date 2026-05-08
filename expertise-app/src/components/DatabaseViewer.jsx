@@ -16,6 +16,7 @@ const DatabaseViewer = () => {
     const [userCases, setUserCases] = useState([]);
     const [allCases, setAllCases] = useState([]);
     const [currentUser, setCurrentUser] = useState(null);
+    const [basesFilter, setBasesFilter] = useState('все'); // 'все' | 'в работе' | 'выполненные'
 
     useEffect(() => {
         const savedConnection = localStorage.getItem('dbConnection');
@@ -36,6 +37,13 @@ const DatabaseViewer = () => {
             loadUserCases();
         }
     }, [activeTab, currentUser]);
+
+    // Загружаем дела при переключении на вкладку "Базы" или изменении фильтра
+    useEffect(() => {
+        if (currentUser && activeTab === 'bases') {
+            loadAllCases(basesFilter);
+        }
+    }, [activeTab, basesFilter, currentUser]);
 
     const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
@@ -62,6 +70,36 @@ const DatabaseViewer = () => {
         }
     };
 
+    const loadAllCases = async (filter = 'все') => {
+        if (!connection) return;
+        
+        setLoading(true);
+        try {
+            const response = await axios.post(`${API_URL}/api/get-all-cases`, {
+                connectionId: connection.connectionId,
+                filter: filter  // 👈 Передаём фильтр на сервер
+            });
+            
+            if (response.data.success) {
+                setAllCases(response.data.cases);
+            } else {
+                alert('Ошибка: ' + response.data.error);
+            }
+        } catch (err) {
+            console.error('Ошибка загрузки дел:', err);
+            alert('Не удалось загрузить дела: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    // Обновите useEffect для вкладки "Базы":
+    useEffect(() => {
+        if (currentUser && activeTab === 'bases') {
+            loadAllCases(); // 👈 Без параметров
+        }
+    }, [activeTab, currentUser]); 
+    
     const loadTableData = useCallback(async (tableName) => {
         if (!connection) return;
         
@@ -283,36 +321,71 @@ const DatabaseViewer = () => {
                 </div>
             )}
 
-            {/* Вкладка "Базы" - все дела */}
+            {/* Вкладка "Базы" - все дела с фильтром */}
             {activeTab === 'bases' && (
                 <div className="cases-tab">
-                    <h3>Все дела в базе</h3>
+                    <div className="tab-header">
+                        <h3>Все дела в базе</h3>
+                        <div className="filter-controls">
+                            <label>Фильтр:</label>
+                            <select 
+                                className="filter-select"
+                                value={basesFilter}
+                                onChange={(e) => {
+                                    setBasesFilter(e.target.value);
+                                    // loadAllCases вызывается автоматически через useEffect
+                                }}
+                            >
+                                <option value="все">Все дела</option>
+                                <option value="в работе">Дела в работе</option>
+                                <option value="выполненные">Выполненные дела</option>
+                            </select>
+                        </div>
+                    </div>
+            
                     {loading && <div className="loading">Загрузка...</div>}
-                    {!loading && allCases.length === 0 && <p>Нет дел в базе</p>}
+            
+                    {!loading && allCases.length === 0 && (
+                        <p className="no-cases">
+                            Нет дел{basesFilter !== 'все' ? ` со статусом "${basesFilter}"` : ''} в базе
+                        </p>
+                    )}
+            
                     {!loading && allCases.length > 0 && (
                         <div className="cases-table-wrapper">
+                            <div className="table-info">
+                                Найдено: <strong>{allCases.length}</strong> записей {basesFilter !== 'все' && `(фильтр: ${basesFilter})`}
+                            </div>
                             <table className="cases-table">
                                 <thead>
                                     <tr>
-                                        <th>№ дела</th>
-                                        <th>Вид</th>
-                                        <th>Дата начала</th>
-                                        <th>Исполнитель</th>
-                                        <th>Статус</th>
+                                        <th className="col-date">дата поступления</th>
+                                        <th className="col-vid">вид</th>
+                                        <th className="col-vh">вх. номер</th>
+                                        <th className="col-nomer">номер дела</th>
+                                        <th className="col-adres">адрес</th>
+                                        <th className="col-status">статус</th>
+                                        <th className="col-ispoln">исполнитель</th>
+                                        <th className="col-sovm">совм.</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {allCases.map((caseItem, idx) => (
-                                        <tr key={idx}>
-                                            <td>{caseItem.номер_дела || '-'}</td>
+                                    {allCases.map((caseItem, index) => (
+                                        <tr key={index}>
+                                            <td>{formatDate(caseItem.дата_поступления)}</td>
                                             <td>{caseItem.вид || '-'}</td>
-                                            <td>{formatDate(caseItem.дата_начала)}</td>
-                                            <td>{caseItem.исполнитель || '-'}</td>
-                                            <td>
-                                                {caseItem.выполнено === '1' || caseItem.выполнено === 1
-                                                    ? 'Выполнено' 
-                                                    : 'Не выполнено'}
+                                            <td>{caseItem.входящий_номер || '-'}</td>
+                                            <td>{caseItem.номер_дела || '-'}</td>
+                                            <td title={caseItem.адрес}>
+                                                {caseItem.адрес ? caseItem.адрес.substring(0, 50) + (caseItem.адрес.length > 50 ? '...' : '') : '-'}
                                             </td>
+                                            <td>
+                                                {caseItem.выполнено === '1' || caseItem.выполнено === 1 
+                                                    ? '✅ Выполнено' 
+                                                    : '⏳ В работе'}
+                                            </td>
+                                            <td>{caseItem.исполнитель || '-'}</td>
+                                            <td>{caseItem.совместно === '1' || caseItem.совместно === 1 ? '✓' : ''}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -321,7 +394,7 @@ const DatabaseViewer = () => {
                     )}
                 </div>
             )}
-
+            
             {/* Остальные вкладки */}
             {activeTab === 'edit' && <div className="tab-content"><h3>Правка</h3><p>Функция в разработке</p></div>}
             {activeTab === 'payment' && <div className="tab-content"><h3>Оплата</h3><p>Функция в разработке</p></div>}

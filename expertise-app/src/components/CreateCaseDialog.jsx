@@ -1,5 +1,5 @@
-// Создайте новый файл src/components/CreateCaseDialog.jsx
 import React, { useState } from 'react';
+import logoImage from './images/favicon.ico';
 import './styles/CreateCaseDialog.css';
 
 const CreateCaseDialog = ({ isOpen, onClose, onSave, userData }) => {
@@ -9,37 +9,33 @@ const CreateCaseDialog = ({ isOpen, onClose, onSave, userData }) => {
     const [formData, setFormData] = useState({
         вид: '',
         датаНачала: new Date().toISOString().split('T')[0],
-        датаОпределения: new Date().toISOString().split('T')[0],
         датаОкончания: new Date().toISOString().split('T')[0],
+        датаОпределения: new Date().toISOString().split('T')[0],
         датаОсмотра: new Date().toISOString().split('T')[0],
+        времяОсмотра: '',
         месяц: '',
         продлить: false,
         номерДела: '',
         входящийНомер: '',
         номерЗаявки: '',
+        кадыйНомер: '',
         адрес: '',
-        видРаботы: '',
+        дополнение: '',
         стоимость: '',
+        стоимостьТип: '',
         исполнитель: userData?.username || '',
         совместно: false,
+        судебныйОрган: '',
+        судья: '',
         папка: '',
         иск: '',
-        судья: '',
-        судебныйОрган: '',
         неОплачено: true,
         оплачено: false,
         бесплатно: false,
         неВыполнено: true,
         выполнено: false,
         безИсполнения: false,
-        вРаботу: false,
-        дополнение: '',
-        документы: '',
-        номер: '',
-        комуОплата: '',
-        заказчик: '',
-        телефон: '',
-        продление1: ''
+        вРаботу: false
     });
 
     const handleInputChange = (field, value) => {
@@ -65,11 +61,20 @@ const CreateCaseDialog = ({ isOpen, onClose, onSave, userData }) => {
     return (
         <div className="dialog-overlay">
             <div className="dialog-window">
+                {/* Заголовок окна */}
                 <div className="dialog-header">
-                    <h3>База экспертиз</h3>
-                    <button className="close-btn" onClick={onClose}>×</button>
+                    <div className="header-left">
+                        <img src={logoImage} alt='Краевое БТИ' className="logo-image"></img>
+                        <h3>База экспертиз</h3>
+                    </div>
+                    <div className="header-buttons">
+                        <button className="win-btn minimize">─</button>
+                        <button className="win-btn maximize">□</button>
+                        <button className="win-btn close" onClick={onClose}>×</button>
+                    </div>
                 </div>
 
+                {/* Главные вкладки */}
                 <div className="dialog-tabs">
                     {['поручение', 'суд', 'клиентам', 'приставы'].map(tab => (
                         <button
@@ -82,6 +87,7 @@ const CreateCaseDialog = ({ isOpen, onClose, onSave, userData }) => {
                     ))}
                 </div>
 
+                {/* Подвкладки */}
                 <div className="dialog-subtabs">
                     {['заявки', 'заказчик', 'смс'].map(tab => (
                         <button
@@ -94,326 +100,372 @@ const CreateCaseDialog = ({ isOpen, onClose, onSave, userData }) => {
                     ))}
                 </div>
 
+                {/* Содержимое формы */}
                 <div className="dialog-content">
                     {activeTab === 'поручение' && activeSubTab === 'заявки' && (
-                        <>
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>вид</label>
+                        <div className="form-container">
+                            {/* Левая колонка */}
+                            <div className="form-column left-column">
+                                <div className="form-row">
+                                    <label className="field-label">вид</label>
                                     <select 
+                                        className="form-input"
                                         value={formData.вид}
                                         onChange={(e) => handleInputChange('вид', e.target.value)}
                                     >
-                                        <option value="">Выберите...</option>
-                                        <option value="экспертиза">Экспертиза</option>
-                                        <option value="оценка">Оценка</option>
+                                        <option value=""></option>
                                     </select>
                                 </div>
-                                <div className="form-group">
-                                    <label>стоимость</label>
-                                    <input
-                                        type="text"
-                                        value={formData.стоимость}
-                                        onChange={(e) => handleInputChange('стоимость', e.target.value)}
-                                    />
-                                </div>
-                            </div>
 
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>дата начала</label>
-                                    <input
-                                        type="date"
-                                        value={formData.датаНачала}
-                                        onChange={(e) => handleInputChange('датаНачала', e.target.value)}
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>дата определения</label>
-                                    <input
-                                        type="date"
-                                        value={formData.датаОпределения}
-                                        onChange={(e) => handleInputChange('датаОпределения', e.target.value)}
-                                    />
-                                </div>
-                            </div>
+                                <div className="date-row">
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                    <div className="date-field">
+                                        <label className="date-label">дата начала</label>
+                                        <div className="date-input-wrapper">
+                                            <input
+                                                type="date"
+                                                className="form-input date-input"
+                                                value={formData.датаНачала}
+                                                onChange={(e) => handleInputChange('датаНачала', e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
 
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>дата окончания</label>
-                                    <input
-                                        type="date"
-                                        value={formData.датаОкончания}
-                                        onChange={(e) => handleInputChange('датаОкончания', e.target.value)}
-                                    />
+                                    <div className="date-field">
+                                        <label className="date-label">дата окончания</label>
+                                        <div className="date-input-wrapper">
+                                            <input
+                                                type="date"
+                                                className="form-input date-input"
+                                                value={formData.датаОкончания}
+                                                onChange={(e) => handleInputChange('датаОкончания', e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="form-group checkbox-group">
-                                    <label>месяц</label>
-                                    <input
-                                        type="text"
-                                        value={formData.месяц}
-                                        onChange={(e) => handleInputChange('месяц', e.target.value)}
-                                    />
-                                    <label className="checkbox-label">
+
+                                <div className="form-row">
+                                    <label className="field-label">дата осмотра</label>
+                                    <div className="date-input-wrapper">
                                         <input
-                                            type="checkbox"
-                                            checked={formData.продлить}
-                                            onChange={(e) => handleInputChange('продлить', e.target.checked)}
+                                            type="date"
+                                            className="form-input date-input"
+                                            value={formData.датаОсмотра}
+                                            onChange={(e) => handleInputChange('датаОсмотра', e.target.value)}
                                         />
-                                        продлить
-                                    </label>
+                                        
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>исполнитель</label>
+                                <div className="form-row">
+                                    <label className="field-label">номер дела</label>
                                     <input
                                         type="text"
-                                        value={formData.исполнитель}
-                                        onChange={(e) => handleInputChange('исполнитель', e.target.value)}
-                                    />
-                                </div>
-                                <label className="checkbox-label">
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.совместно}
-                                        onChange={(e) => handleInputChange('совместно', e.target.checked)}
-                                    />
-                                    совместно
-                                </label>
-                            </div>
-
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>дата осмотра</label>
-                                    <input
-                                        type="date"
-                                        value={formData.датаОсмотра}
-                                        onChange={(e) => handleInputChange('датаОсмотра', e.target.value)}
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>время осмотра</label>
-                                    <input
-                                        type="time"
-                                        value={formData.времяОсмотра}
-                                        onChange={(e) => handleInputChange('времяОсмотра', e.target.value)}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="form-row">
-                                <div className="form-group full-width">
-                                    <label>номер дела</label>
-                                    <input
-                                        type="text"
+                                        className="form-input"
                                         value={formData.номерДела}
                                         onChange={(e) => handleInputChange('номерДела', e.target.value)}
                                     />
                                 </div>
-                            </div>
 
-                            <div className="form-row">
-                                <div className="form-group full-width">
-                                    <label>входящий номер</label>
+                                <div className="form-row">
+                                    <label className="field-label">входящий номер</label>
                                     <input
                                         type="text"
+                                        className="form-input"
                                         value={formData.входящийНомер}
                                         onChange={(e) => handleInputChange('входящийНомер', e.target.value)}
                                     />
                                 </div>
-                            </div>
 
-                            <div className="form-row">
-                                <div className="form-group full-width">
-                                    <label>номер заявки</label>
+                                <div className="form-row">
+                                    <label className="field-label">номер заявки</label>
                                     <input
                                         type="text"
+                                        className="form-input"
                                         value={formData.номерЗаявки}
                                         onChange={(e) => handleInputChange('номерЗаявки', e.target.value)}
                                     />
                                 </div>
-                            </div>
 
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>кадый номер</label>
-                                    <input
-                                        type="text"
-                                        value={formData.кадыйНомер}
-                                        onChange={(e) => handleInputChange('кадыйНомер', e.target.value)}
-                                    />
+                                <div className="form-row">
+                                    <label className="field-label">кадый номер</label>
+                                    <div className="input-with-button">
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            value={formData.кадыйНомер}
+                                            onChange={(e) => handleInputChange('кадыйНомер', e.target.value)}
+                                        />
+                                        <button className="btn-action">ПКК</button>
+                                    </div>
                                 </div>
-                                <button className="btn-pkk">ПКК</button>
-                            </div>
 
-                            <div className="form-row">
-                                <div className="form-group full-width">
-                                    <label>адрес</label>
-                                    <input
-                                        type="text"
+                                <div className="form-row">
+                                    <label className="field-label">адрес</label>
+                                    <textarea
+                                        className="form-input textarea"
                                         value={formData.адрес}
                                         onChange={(e) => handleInputChange('адрес', e.target.value)}
+                                        rows={3}
                                     />
                                 </div>
-                            </div>
 
-                            <div className="form-row">
-                                <div className="form-group full-width">
-                                    <label>дополнение</label>
+                                <div className="form-row">
+                                    <label className="field-label">дополнение</label>
                                     <textarea
+                                        className="form-input textarea"
                                         value={formData.дополнение}
                                         onChange={(e) => handleInputChange('дополнение', e.target.value)}
-                                        rows={4}
+                                        rows={6}
                                     />
                                 </div>
                             </div>
-                        </>
-                    )}
 
-                    {activeTab === 'суд' && (
-                        <>
-                            <div className="form-row">
-                                <div className="form-group full-width">
-                                    <label>судебный орган</label>
-                                    <select
+                            {/* Правая колонка */}
+                            <div className="form-column right-column">
+                                <div className="form-row">
+                                    <label className="field-label">дата определения</label>
+                                    <div className="date-input-wrapper">
+                                        <input
+                                            type="date"
+                                            className="form-input date-input"
+                                            value={formData.датаОпределения}
+                                            onChange={(e) => handleInputChange('датаОпределения', e.target.value)}
+                                        />
+                                        
+                                    </div>
+                                </div>
+
+                                <div className="form-row">
+                                    <label className="field-label"></label>
+                                    <div className="inline-controls">
+                                        <input
+                                            type="text"
+                                            className="form-input small-input"
+                                            value={formData.месяц}
+                                            onChange={(e) => handleInputChange('месяц', e.target.value)}
+                                            placeholder="месяц"
+                                        />
+                                        <label className="checkbox-label">
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.продлить}
+                                                onChange={(e) => handleInputChange('продлить', e.target.checked)}
+                                            />
+                                            продлить
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div className="form-row">
+                                    <label className="field-label">время осмотра</label>
+                                    <input
+                                        type="time"
+                                        className="form-input time-input"
+                                        value={formData.времяОсмотра}
+                                        onChange={(e) => handleInputChange('времяОсмотра', e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="form-row">
+                                    <label className="field-label">стоимость</label>
+                                    <div className="input-with-select">
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            value={formData.стоимость}
+                                            onChange={(e) => handleInputChange('стоимость', e.target.value)}
+                                        />
+                                        <select className="form-input select-small">
+                                            <option value=""></option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="form-row">
+                                    <label className="field-label">исполнитель</label>
+                                    <div className="input-with-checkbox">
+                                        <select 
+                                            className="form-input"
+                                            value={formData.исполнитель}
+                                            onChange={(e) => handleInputChange('исполнитель', e.target.value)}
+                                        >
+                                            <option value="Слепов">Слепов</option>
+                                            <option value="Емиж">Емиж</option>
+                                        </select>
+                                        <label className="checkbox-label">
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.совместно}
+                                                onChange={(e) => handleInputChange('совместно', e.target.checked)}
+                                            />
+                                            совместно
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div className="form-row">
+                                    <label className="field-label">судебный орган</label>
+                                    <select 
+                                        className="form-input"
                                         value={formData.судебныйОрган}
                                         onChange={(e) => handleInputChange('судебныйОрган', e.target.value)}
                                     >
-                                        <option value="">Выберите...</option>
-                                        <option value="арбитражный">Арбитражный суд</option>
-                                        <option value="районный">Районный суд</option>
+                                        <option value=""></option>
                                     </select>
                                 </div>
-                            </div>
 
-                            <div className="form-row">
-                                <div className="form-group full-width">
-                                    <label>судья</label>
-                                    <input
-                                        type="text"
+                                <div className="form-row">
+                                    <label className="field-label">судья</label>
+                                    <select 
+                                        className="form-input"
                                         value={formData.судья}
                                         onChange={(e) => handleInputChange('судья', e.target.value)}
-                                    />
+                                    >
+                                        <option value=""></option>
+                                    </select>
                                 </div>
-                            </div>
 
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>папка</label>
-                                    <input
-                                        type="text"
-                                        value={formData.папка}
-                                        onChange={(e) => handleInputChange('папка', e.target.value)}
-                                    />
+                                <div className="form-row">
+                                    <label className="field-label">папка</label>
+                                    <div className="input-with-button">
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            value={formData.папка}
+                                            onChange={(e) => handleInputChange('папка', e.target.value)}
+                                        />
+                                        <button className="btn-action">сканер</button>
+                                    </div>
                                 </div>
-                                <button className="btn-small">сканер</button>
-                            </div>
 
-                            <div className="form-row">
-                                <div className="form-group full-width">
-                                    <label>иск</label>
+                                <div className="form-row">
+                                    <label className="field-label">иск</label>
                                     <textarea
+                                        className="form-input textarea"
                                         value={formData.иск}
                                         onChange={(e) => handleInputChange('иск', e.target.value)}
                                         rows={6}
                                     />
                                 </div>
                             </div>
-                        </>
+                        </div>
                     )}
 
-                    <div className="form-section">
-                        <div className="radio-group">
-                            <div className="radio-label">Не оплачено</div>
-                            <label className="radio-item">
-                                <input
-                                    type="radio"
-                                    name="payment"
-                                    checked={formData.неОплачено}
-                                    onChange={() => handleInputChange('неОплачено', true)}
-                                />
-                                Не оплачено
-                            </label>
-                            <label className="radio-item">
-                                <input
-                                    type="radio"
-                                    name="payment"
-                                    checked={formData.оплачено}
-                                    onChange={() => {
-                                        handleInputChange('оплачено', true);
-                                        handleInputChange('неОплачено', false);
-                                        handleInputChange('бесплатно', false);
-                                    }}
-                                />
-                                Оплачено
-                            </label>
-                            <label className="radio-item">
-                                <input
-                                    type="radio"
-                                    name="payment"
-                                    checked={formData.бесплатно}
-                                    onChange={() => {
-                                        handleInputChange('бесплатно', true);
-                                        handleInputChange('неОплачено', false);
-                                        handleInputChange('оплачено', false);
-                                    }}
-                                />
-                                Бесплатно
-                            </label>
+                    {/* Секция с радио-кнопками */}
+                    <div className="bottom-section">
+                        <div className="radio-group-wrapper">
+                            <div className="radio-group-title">Не оплачено</div>
+                            <div className="radio-group">
+                                <label className="radio-label">
+                                    <input
+                                        type="radio"
+                                        name="payment"
+                                        checked={formData.неОплачено}
+                                        onChange={() => {
+                                            handleInputChange('неОплачено', true);
+                                            handleInputChange('оплачено', false);
+                                            handleInputChange('бесплатно', false);
+                                        }}
+                                    />
+                                    Не оплачено
+                                </label>
+                                <label className="radio-label">
+                                    <input
+                                        type="radio"
+                                        name="payment"
+                                        checked={formData.оплачено}
+                                        onChange={() => {
+                                            handleInputChange('неОплачено', false);
+                                            handleInputChange('оплачено', true);
+                                            handleInputChange('бесплатно', false);
+                                        }}
+                                    />
+                                    Оплачено
+                                </label>
+                                <label className="radio-label">
+                                    <input
+                                        type="radio"
+                                        name="payment"
+                                        checked={formData.бесплатно}
+                                        onChange={() => {
+                                            handleInputChange('неОплачено', false);
+                                            handleInputChange('оплачено', false);
+                                            handleInputChange('бесплатно', true);
+                                        }}
+                                    />
+                                    Бесплатно
+                                </label>
+                            </div>
                         </div>
 
-                        <div className="radio-group">
-                            <div className="radio-label">Не выполнено</div>
-                            <label className="radio-item">
-                                <input
-                                    type="radio"
-                                    name="status"
-                                    checked={formData.неВыполнено}
-                                    onChange={() => handleInputChange('неВыполнено', true)}
-                                />
-                                Не выполнено
-                            </label>
-                            <label className="radio-item">
-                                <input
-                                    type="radio"
-                                    name="status"
-                                    checked={formData.выполнено}
-                                    onChange={() => {
-                                        handleInputChange('выполнено', true);
-                                        handleInputChange('неВыполнено', false);
-                                        handleInputChange('безИсполнения', false);
-                                    }}
-                                />
-                                Выполнено
-                            </label>
-                            <label className="radio-item">
-                                <input
-                                    type="radio"
-                                    name="status"
-                                    checked={formData.безИсполнения}
-                                    onChange={() => {
-                                        handleInputChange('безИсполнения', true);
-                                        handleInputChange('неВыполнено', false);
-                                        handleInputChange('выполнено', false);
-                                    }}
-                                />
-                                Без исполнения
-                            </label>
+                        <div className="radio-group-wrapper">
+                            <div className="radio-group-title">Не выполнено</div>
+                            <div className="radio-group">
+                                <label className="radio-label">
+                                    <input
+                                        type="radio"
+                                        name="status"
+                                        checked={formData.неВыполнено}
+                                        onChange={() => {
+                                            handleInputChange('неВыполнено', true);
+                                            handleInputChange('выполнено', false);
+                                            handleInputChange('безИсполнения', false);
+                                        }}
+                                    />
+                                    Не выполнено
+                                </label>
+                                <label className="radio-label">
+                                    <input
+                                        type="radio"
+                                        name="status"
+                                        checked={formData.выполнено}
+                                        onChange={() => {
+                                            handleInputChange('неВыполнено', false);
+                                            handleInputChange('выполнено', true);
+                                            handleInputChange('безИсполнения', false);
+                                        }}
+                                    />
+                                    Выполнено
+                                </label>
+                                <label className="radio-label">
+                                    <input
+                                        type="radio"
+                                        name="status"
+                                        checked={formData.безИсполнения}
+                                        onChange={() => {
+                                            handleInputChange('неВыполнено', false);
+                                            handleInputChange('выполнено', false);
+                                            handleInputChange('безИсполнения', true);
+                                        }}
+                                    />
+                                    Без исполнения
+                                </label>
+                            </div>
                         </div>
 
-                        <label className="checkbox-label work-checkbox">
-                            <input
-                                type="checkbox"
-                                checked={formData.вРаботу}
-                                onChange={(e) => handleInputChange('вРаботу', e.target.checked)}
-                            />
-                            в работу
-                        </label>
+                        <div className="work-checkbox-wrapper">
+                            <label className="checkbox-label red-checkbox">
+                                <input
+                                    type="checkbox"
+                                    checked={formData.вРаботу}
+                                    onChange={(e) => handleInputChange('вРаботу', e.target.checked)}
+                                />
+                                в работу
+                            </label>
+                        </div>
                     </div>
                 </div>
 
+                {/* Кнопки */}
                 <div className="dialog-footer">
                     <button className="btn-ok" onClick={handleSave}>ok</button>
                     <button className="btn-cancel" onClick={onClose}>отмена</button>

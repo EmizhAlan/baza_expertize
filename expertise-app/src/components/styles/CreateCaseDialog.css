@@ -4,245 +4,387 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.3);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 1000;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .dialog-window {
     background: white;
     border: 1px solid #999;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    width: 900px;
-    max-width: 95vw;
-    max-height: 90vh;
+    width: 1100px;
+    height: 770px;
+    max-width: 98vw;
+    max-height: 95vh;
     display: flex;
     flex-direction: column;
 }
 
+/* Заголовок окна */
 .dialog-header {
     background: white;
-    padding: 8px 12px;
+    padding: 6px 10px;
     border-bottom: 1px solid #ddd;
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
-.dialog-header h3 {
-    margin: 0;
-    font-size: 14px;
-    font-weight: 600;
+.header-left {
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
-.close-btn {
-    background: none;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-    color: #666;
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.app-icon {
+    font-size: 16px;
 }
 
-.close-btn:hover {
-    background-color: #e81123;
+.dialog-header h3 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+}
+
+.header-buttons {
+    display: flex;
+    gap: 2px;
+}
+
+.win-btn {
+    width: 30px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 14px;
+    color: #333;
+}
+
+.win-btn:hover {
+    background: #e5e5e5;
+}
+
+.win-btn.close:hover {
+    background: #e81123;
     color: white;
 }
 
+/* Главные вкладки */
 .dialog-tabs {
     display: flex;
     gap: 2px;
-    padding: 8px 12px 0;
-    border-bottom: 1px solid #ddd;
+    padding: 8px 10px 0;
+    background: white;
 }
 
 .dialog-tab {
-    padding: 6px 16px;
-    border: 1px solid #ddd;
-    border-bottom: none;
-    background: #f0f0f0;
+    background: white;
+    border: 1px solid white;
     cursor: pointer;
-    font-size: 13px;
-    border-radius: 4px 4px 0 0;
+
 }
 
 .dialog-tab.active {
     background: white;
     border-bottom: 1px solid white;
-    margin-bottom: -1px;
-    font-weight: 600;
 }
 
+/* Подвкладки */
 .dialog-subtabs {
     display: flex;
-    gap: 2px;
-    padding: 8px 12px 0;
+    gap: 0; /* 👈 Замените 2px на 0, чтобы вкладки смыкались */
+    padding: 4px 10px 0;
     background: #f9f9f9;
+
 }
 
 .dialog-subtab {
-    padding: 4px 12px;
+    padding: 3px 10px;
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    font-size: 11px;
+    color: #333;
+    position: relative; /* 👈 Нужно для работы z-index */
+    z-index: 1;         /* 👈 Базовый слой */
+    margin-right: -1px; /* 👈 Сдвигаем вкладки, чтобы они налегали друг на друга */
+}
+
+.dialog-subtab.active {
+    background: white;
     border: 1px solid #ddd;
+    border-bottom: 1px solid white;
+    font-weight: 600;
+    z-index: 2; /* 👈 Активная вкладка поднимается на слой выше */
+}
+
+/* Содержимое формы */
+.dialog-content {
+    padding: 15px;
+    overflow-y: auto;
+    flex: 1;
+    background: white;
+}
+
+.form-container {
+    display: flex;
+    gap: 30px;
+}
+
+.form-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.data-nachala {
+    min-width: 120px;
+    color: #333;
+    text-align: right;
+}
+
+.data-nachala-label {
+
+    align-items: center;
+    gap: 10px;
+}
+
+.field-label {
+    min-width: 120px;
+    color: #333;
+    text-align: right;
+}
+
+.form-input {
+    flex: 1;
+    padding: 4px 6px;
+    border: 1px solid #ccc;
+    font-size: 12px;
+    font-family: inherit;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #0078d4;
+}
+
+.textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+/* Дата и время */
+.date-input-wrapper {
+    
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+}
+
+.date-input {
+    flex: 1;
+}
+
+/* Контейнер, который ставит элементы в ряд */
+.date-row {
+    display: flex;
+    gap: 15px; /* Расстояние между двумя датами */
+    align-items: flex-end; /* Выравнивание по низу (если поля разной высоты) */
+    margin-bottom: 10px;
+}
+
+/* Каждый отдельный блок с датой */
+.date-field {
+    display: flex;
+    flex-direction: column; /* Лейбл сверху, поле снизу */
+    flex: 1; /* Блоки занимают равную ширину */
+
+}
+
+/* Стили для лейбла (дата начала / дата окончания) */
+.date-label {
+
+    margin-bottom: 5px;
+    color: #333;
+}
+
+/* Обертка инпута, чтобы он был под лейблом */
+.date-input-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: center; /* Центрируем сам инпут внутри обертки */
+}
+
+.calendar-btn {
+    width: 24px;
+    height: 22px;
+    border: 1px solid #ccc;
     background: #f0f0f0;
     cursor: pointer;
     font-size: 12px;
 }
 
-.dialog-subtab.active {
-    background: white;
-    font-weight: 600;
+.time-input {
+    width: 100px;
 }
 
-.dialog-content {
-    padding: 15px;
-    overflow-y: auto;
-    flex: 1;
-}
-
-.form-row {
+/* Кнопки с input */
+.input-with-button {
     display: flex;
-    gap: 15px;
-    margin-bottom: 12px;
-    align-items: flex-end;
-}
-
-.form-group {
-    display: flex;
-    flex-direction: column;
     gap: 4px;
     flex: 1;
 }
 
-.form-group.full-width {
-    flex: 1 1 100%;
-}
-
-.form-group label {
-    font-size: 12px;
-    color: #333;
-    font-weight: 500;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-    padding: 6px 8px;
+.btn-action {
+    padding: 4px 10px;
     border: 1px solid #ccc;
-    border-radius: 3px;
-    font-size: 13px;
-    font-family: inherit;
+    background: #f0f0f0;
+    cursor: pointer;
+    font-size: 11px;
+    white-space: nowrap;
 }
 
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-    outline: none;
-    border-color: #0078d4;
+.btn-action:hover {
+    background: #e0e0e0;
 }
 
-.checkbox-group {
-    flex-direction: row;
+/* Select с input */
+.input-with-select {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+}
+
+.select-small {
+    width: 80px;
+    min-width: 80px;
+}
+
+/* Checkbox с input */
+.input-with-checkbox {
+    display: flex;
+    gap: 8px;
     align-items: center;
-    gap: 10px;
+    flex: 1;
 }
 
+.inline-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex: 1;
+}
+
+.small-input {
+    width: 100px;
+    min-width: 100px;
+}
+
+/* Checkbox */
 .checkbox-label {
     display: flex;
     align-items: center;
-    gap: 5px;
-    font-size: 12px;
+    gap: 4px;
+    font-size: 11px;
     cursor: pointer;
+    white-space: nowrap;
 }
 
 .checkbox-label input[type="checkbox"] {
     margin: 0;
+    width: 14px;
+    height: 14px;
 }
 
-.btn-pkk {
-    padding: 6px 12px;
-    background: #e9ecef;
-    border: 1px solid #adb5bd;
-    cursor: pointer;
-    font-size: 12px;
-    margin-bottom: 1px;
-}
-
-.btn-small {
-    padding: 6px 12px;
-    background: #e9ecef;
-    border: 1px solid #adb5bd;
-    cursor: pointer;
-    font-size: 12px;
-}
-
-.form-section {
-    margin-top: 20px;
-    padding-top: 15px;
-    border-top: 1px solid #ddd;
-}
-
-.radio-group {
-    margin-bottom: 15px;
-}
-
-.radio-label {
-    font-size: 12px;
-    font-weight: 600;
-    margin-bottom: 8px;
-    color: #333;
-}
-
-.radio-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    margin-right: 20px;
-    font-size: 12px;
-    cursor: pointer;
-}
-
-.radio-item input[type="radio"] {
-    margin: 0;
-}
-
-.work-checkbox {
-    display: flex;
-    justify-content: flex-end;
-    gap: 5px;
+.red-checkbox {
     color: #c00;
 }
 
+/* Нижняя секция с радио */
+.bottom-section {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #ddd;
+    display: flex;
+    gap: 30px;
+    align-items: flex-start;
+}
+
+.radio-group-wrapper {
+    border: 1px solid #ddd;
+    padding: 8px 12px;
+    border-radius: 3px;
+}
+
+.radio-group-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 6px;
+}
+
+.radio-group {
+    display: flex;
+    gap: 15px;
+}
+
+.radio-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.radio-label input[type="radio"] {
+    margin: 0;
+    width: 14px;
+    height: 14px;
+}
+
+.work-checkbox-wrapper {
+    margin-left: auto;
+}
+
+/* Footer с кнопками */
 .dialog-footer {
     padding: 12px 15px;
     border-top: 1px solid #ddd;
     display: flex;
     justify-content: flex-end;
     gap: 10px;
+    background: #f9f9f9;
 }
 
 .btn-ok,
 .btn-cancel {
-    padding: 6px 24px;
-    font-size: 13px;
+    padding: 5px 24px;
+    font-size: 12px;
     cursor: pointer;
-    border: 1px solid #adb5bd;
+    border: 1px solid #999;
+    min-width: 80px;
 }
 
 .btn-ok {
-    background: #e9ecef;
+    background: white;
+    border: 2px solid #333;
 }
 
 .btn-ok:hover {
-    background: #dee2e6;
+    background: #f0f0f0;
 }
 
 .btn-cancel {
@@ -250,5 +392,43 @@
 }
 
 .btn-cancel:hover {
-    background: #f8f9fa;
+    background: #f0f0f0;
+}
+
+/* Скроллбар */
+.dialog-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.dialog-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.dialog-content::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+}
+
+.dialog-content::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Адаптивность */
+@media (max-width: 1200px) {
+    .form-container {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .field-label {
+        min-width: 100px;
+    }
+    
+    .bottom-section {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .work-checkbox-wrapper {
+        margin-left: 0;
+    }
 }

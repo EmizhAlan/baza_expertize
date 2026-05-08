@@ -100,7 +100,7 @@ const LoginPage = ({ onLoginSuccess }) => {
                     {/* Form Section */}
                     <div className="form-section">
                         <div className="form-row">
-                            <label>сервер</label>
+                            <label className="label">сервер</label>
                             <input
                                 type="text"
                                 value={server}
@@ -110,7 +110,7 @@ const LoginPage = ({ onLoginSuccess }) => {
                         </div>
 
                         <div className="form-row">
-                            <label>база</label>
+                            <label className="label">база</label>
                             <input
                                 type="text"
                                 value={database}
@@ -131,7 +131,7 @@ const LoginPage = ({ onLoginSuccess }) => {
                         </div>
 
                         <div className="form-row">
-                            <label>Пароль</label>
+                            <label className="label">Пароль</label>
                             <input
                                 type="password"
                                 value={password}

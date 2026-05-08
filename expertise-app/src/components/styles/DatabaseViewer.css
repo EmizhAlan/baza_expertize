@@ -387,6 +387,87 @@
     font-style: italic;
 }
 
+/* Фильтр в заголовке вкладки */
+.filter-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.filter-controls label {
+    font-size: 14px;
+    color: #666;
+}
+
+.filter-select {
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    background: white;
+    cursor: pointer;
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: #0078d4;
+}
+
+/* Инфо о количестве записей */
+.table-info {
+    padding: 8px 12px;
+    background: #f5f5f5;
+    border-bottom: 1px solid #ddd;
+    font-size: 13px;
+    color: #666;
+}
+
+.table-info strong {
+    color: #333;
+}
+
+/* Счётчик дел в заголовке */
+.cases-count {
+    font-size: 14px;
+    color: #666;
+    font-weight: normal;
+}
+
+/* Обрезание длинного адреса */
+.col-adres {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Подсказка при наведении на адрес */
+.col-adres:hover {
+    overflow: visible;
+    white-space: normal;
+    position: relative;
+    z-index: 10;
+    background: white;
+    padding: 2px;
+}
+
+/* Адаптивность для фильтра */
+@media (max-width: 768px) {
+    .tab-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .filter-controls {
+        width: 100%;
+    }
+    
+    .filter-select {
+        flex: 1;
+    }
+}
+
 /* Адаптивность */
 @media (max-width: 1200px) {
     .col-adres {

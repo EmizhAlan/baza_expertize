@@ -110,11 +110,15 @@ app.post('/api/query-table', async (req, res) => {
     }
     
     try {
-        // Экранируем имя таблицы для безопасности
+        // Экранируем имя таблицы: убираем опасные символы
         const safeTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
-        const quotedTableName = `[${safeTableName}]`;
-        console.log(`🔍 Запрос к таблице: ${safeTableName}`);
         
+        // 👇 ВАЖНО: Оборачиваем в квадратные скобки для SQL Server
+        const quotedTableName = `[${safeTableName}]`;
+        
+        console.log(`🔍 Запрос к таблице: ${quotedTableName}`);
+        
+        // Запрос к метаданным (здесь TABLE_NAME сравнивается как строка, скобки не нужны)
         const columnsResult = await pool.request().query(`
             SELECT COLUMN_NAME 
             FROM INFORMATION_SCHEMA.COLUMNS 
@@ -122,7 +126,8 @@ app.post('/api/query-table', async (req, res) => {
             ORDER BY ORDINAL_POSITION
         `);
         
-        const dataResult = await pool.request().query(`SELECT * FROM ${safeTableName}`);
+        // 👇 ВАЖНО: Используем [quotedTableName] в самом запросе
+        const dataResult = await pool.request().query(`SELECT * FROM ${quotedTableName}`);
         
         res.json({
             success: true,
@@ -297,6 +302,65 @@ app.post('/api/get-user-cases', async (req, res) => {
                    OR CAST([ispolnitel_sov] AS NVARCHAR(10)) = '1'
                 ORDER BY [date] DESC
             `);
+
+        res.json({
+            success: true,
+            cases: result.recordset
+        });
+
+    } catch (err) {
+        console.error('❌ Ошибка загрузки дел:', err.message);
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+});
+
+// ==========================================
+// 🗄️ МАРШРУТ: Загрузка ВСЕХ дел из базы с фильтром
+// ==========================================
+app.post('/api/get-all-cases', async (req, res) => {
+    try {
+        const { connectionId, filter } = req.body;
+        console.log(`🗄️ Загрузка всех дел, фильтр: ${filter || 'все'}`);
+        
+        const pool = connections.get(connectionId);
+        if (!pool) {
+            return res.status(404).json({
+                success: false,
+                error: 'Подключение не найдено'
+            });
+        }
+
+        // Формируем WHERE-условие в зависимости от фильтра
+        let whereClause = '';
+        if (filter === 'в работе') {
+            // Дела в работе: не выполнено (0 или NULL)
+            whereClause = `WHERE (CAST([vypolneno] AS NVARCHAR(10)) = '0' OR [vypolneno] IS NULL)`;
+        } else if (filter === 'выполненные') {
+            // Выполненные дела
+            whereClause = `WHERE CAST([vypolneno] AS NVARCHAR(10)) = '1'`;
+        }
+        // Если filter = 'все' — WHERE не добавляем
+
+        const result = await pool.request().query(`
+            SELECT TOP 1000
+                [date] as дата_поступления,
+                [vid] as вид,
+                [vh_nomer] as входящий_номер,
+                [nomer_dela] as номер_дела,
+                [adres] as адрес,
+                [vypolneno] as выполнено,
+                [ispolnitel] as исполнитель,
+                [ispolnitel_sov] as совместно,
+                [stoimost] as стоимость,
+                [data_nachala] as дата_начала,
+                [data_okonchaniya] as дата_окончания
+            FROM dbo.baza
+            ${whereClause}
+            ORDER BY [date] DESC
+        `);
 
         res.json({
             success: true,
