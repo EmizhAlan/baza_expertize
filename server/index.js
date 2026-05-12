@@ -318,6 +318,78 @@ app.post('/api/get-user-cases', async (req, res) => {
 });
 
 // ==========================================
+// 👨‍⚖️ МАРШРУТ: Получение списка судей по суду
+// ==========================================
+app.post('/api/get-judges', async (req, res) => {
+    try {
+        const { connectionId, courtName } = req.body;
+        console.log(`👨‍⚖️ Запрос судей: court="${courtName}", connectionId="${connectionId}"`);
+        
+        if (!connectionId) {
+            return res.status(400).json({ success: false, error: 'Не передан connectionId' });
+        }
+        
+        const pool = connections.get(connectionId);
+        if (!pool) {
+            console.warn(`⚠️ Подключение не найдено. Доступные ID:`, Array.from(connections.keys()));
+            return res.status(404).json({
+                success: false,
+                error: 'Подключение не найдено. Доступные ID: ' + Array.from(connections.keys()).join(', ')
+            });
+        }
+
+        // Маппинг судов → таблицы
+        const COURT_TABLE_MAP = {
+            'Адлерский районный суд города Сочи': 'adl',
+            'Арбитражный суд Краснодарского края': 'arbitr',
+            'Краснодарский краевой суд': 'krai',
+            'Лазаревский районный суд г.Сочи': 'laz',
+            'Судебные участки мировых судей г. Сочи': 'mir',
+            'Туапсинский городской суд Краснодарского края': '',
+            'Туапсинский районный суд Краснодарского края': '',
+            'Хостинский районный суд г. Сочи': '',
+            'Центральный районный суд г. Сочи': 'sochi'
+        };
+
+        const tableName = COURT_TABLE_MAP[courtName];
+        if (!tableName) {
+            return res.json({ success: true, judges: [], message: 'Нет таблицы для этого суда' });
+        }
+
+        const safeTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+        const quotedTableName = `[${safeTableName}]`;
+        console.log(`📋 Запрос к таблице: ${quotedTableName}`);
+
+        const result = await pool.request().query(`SELECT * FROM ${quotedTableName}`);
+        
+        const judges = result.recordset.map(row => {
+            // 👇 АДАПТИРУЙ ПОД СВОИ НАЗВАНИЯ КОЛОНОК!
+            const фамилия = row.фамилия || row.column1 || row.FIO || row.name || '';
+            const имя = row.имя || row.column2 || '';
+            const отчество = row.отчество || row.column3 || '';
+            const fullName = [фамилия, имя, отчество].filter(Boolean).join(' ');
+            return { fullName, фамилия, имя, отчество };
+        });
+
+        console.log(`✅ Найдено: ${judges.length} судей`);
+        res.json({ success: true, judges });
+
+    } catch (err) {
+        console.error('❌ Ошибка get-judges:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ТЕСТОВЫЙ эндпоинт для проверки подключения
+app.get('/api/test-connection', (req, res) => {
+    console.log('🔍 Доступные подключения:', Array.from(connections.keys()));
+    res.json({
+        activeConnections: Array.from(connections.keys()),
+        timestamp: new Date().toISOString()
+    });
+});
+
+// ==========================================
 // 🗄️ МАРШРУТ: Загрузка ВСЕХ дел из базы с фильтром
 // ==========================================
 app.post('/api/get-all-cases', async (req, res) => {
