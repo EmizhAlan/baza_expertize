@@ -200,18 +200,18 @@ app.post('/api/save-case', async (req, res) => {
         const query = `
             INSERT INTO dbo.baza (
                 [vid], [data_nachala], [data_opredeleniya], [data_okonchaniya], 
-                [data_osmotra], [nomer_dela], [vh_nomer], [nomer_z], [adres], 
+                [data_osmotra], [data_rozhdeniya], [kolichestvo_dnej], [nomer_dela], [vh_nomer], [nomer_z], [adres], 
                 [vid_raboty], [stoimost], [ispolnitel], [ispolnitel_sov], 
                 [papka], [isk], [sudya], [sudebnyj_organ], [oplacheno], 
-                [vypolneno], [prodlen_otmetka], [prodlen_1], [kolichestvo_dnej], 
+                [vypolneno], [prodlen_otmetka], [prodlen_1], 
                 [dokumenty], [nomer], [komu_oplata], [zakazchik], [telefon], 
                 [komentarii], [date]
             ) VALUES (
                 @vid, @data_nachala, @data_opredeleniya, @data_okonchaniya, 
-                @data_osmotra, @nomer_dela, @vh_nomer, @nomer_z, @adres, 
+                @data_osmotra, @data_rozhdeniya, @kolichestvo_dnej, @nomer_dela, @vh_nomer, @nomer_z, @adres, 
                 @vid_raboty, @stoimost, @ispolnitel, @ispolnitel_sov, 
                 @papka, @isk, @sudya, @sudebnyj_organ, @oplacheno, 
-                @vypolneno, @prodlen_otmetka, @prodlen_1, @kolichestvo_dnej, 
+                @vypolneno, @prodlen_otmetka, @prodlen_1,  
                 @dokumenty, @nomer, @komu_oplata, @zakazchik, @telefon, 
                 @komentarii, @date
             )
@@ -220,34 +220,35 @@ app.post('/api/save-case', async (req, res) => {
         console.log('📦 Данные для сохранения:', JSON.stringify(caseData).slice(0, 200) + '...');
 
         await pool.request()
-            .input('vid', sql.NVarChar(100), caseData.вид || null)
-            .input('data_nachala', sql.NVarChar(50), caseData.датаНачала || null)
-            .input('data_opredeleniya', sql.NVarChar(50), caseData.датаОпределения || null)
-            .input('data_okonchaniya', sql.NVarChar(50), caseData.датаОкончания || null)
-            .input('data_osmotra', sql.NVarChar(50), caseData.датаОсмотра || null)
-            .input('nomer_dela', sql.NVarChar(100), caseData.номерДела || null)
-            .input('vh_nomer', sql.NVarChar(100), caseData.входящийНомер || null)
-            .input('nomer_z', sql.NVarChar(100), caseData.номерЗаявки || null)
-            .input('adres', sql.NVarChar(500), caseData.адрес || null)
-            .input('vid_raboty', sql.NVarChar(100), caseData.вид || null)
-            .input('stoimost', sql.NVarChar(100), caseData.стоимость || null)
-            .input('ispolnitel', sql.NVarChar(100), caseData.исполнитель || null)
+            .input('vid', sql.NVarChar(100), caseData.вид || '')
+            .input('data_nachala', sql.NVarChar(50), caseData.датаНачала || '')
+            .input('data_opredeleniya', sql.NVarChar(50), caseData.датаОпределения || '')
+            .input('data_okonchaniya', sql.NVarChar(50), caseData.датаОкончания || '')
+            .input('data_osmotra', sql.NVarChar(50), caseData.датаОсмотра || '')
+            .input('data_rozhdeniya', sql.NVarChar(50), caseData.датаРождения || '  .  .')
+            .input('kolichestvo_dnej', sql.NVarChar(50), String(caseData.kolichestvo_dnej || '30'))
+            .input('nomer_dela', sql.NVarChar(100), caseData.номерДела || '')
+            .input('vh_nomer', sql.NVarChar(100), caseData.входящийНомер || '')
+            .input('nomer_z', sql.NVarChar(100), caseData.номерЗаявки || '')
+            .input('adres', sql.NVarChar(500), caseData.адрес || '')
+            .input('vid_raboty', sql.NVarChar(100), caseData.дополнение || '')
+            .input('stoimost', sql.NVarChar(100), caseData.стоимость || '')
+            .input('ispolnitel', sql.NVarChar(100), caseData.исполнитель || '')
             .input('ispolnitel_sov', sql.NVarChar(1), caseData.совместно ? '1' : '0')
-            .input('papka', sql.NVarChar(200), caseData.папка || null)
-            .input('isk', sql.NVarChar(sql.MAX), caseData.иск || null)
-            .input('sudya', sql.NVarChar(200), caseData.судья || null)
-            .input('sudebnyj_organ', sql.NVarChar(200), caseData.судебныйОрган || null)
+            .input('papka', sql.NVarChar(200), caseData.папка || '')
+            .input('isk', sql.NVarChar(sql.MAX), caseData.иск || '')
+            .input('sudya', sql.NVarChar(200), caseData.судья || '')
+            .input('sudebnyj_organ', sql.NVarChar(200), caseData.судебныйОрган || '')
             .input('oplacheno', sql.NVarChar(1), caseData.оплачено ? '1' : '0')
             .input('vypolneno', sql.NVarChar(1), caseData.выполнено ? '1' : '0')
             .input('prodlen_otmetka', sql.NVarChar(1), caseData.продлить ? '1' : '0')
-            .input('prodlen_1', sql.NVarChar(50), caseData.месяц || null)
-            .input('kolichestvo_dnej', sql.NVarChar(50), caseData.месяц || null)
-            .input('dokumenty', sql.NVarChar(sql.MAX), caseData.документы || null)
-            .input('nomer', sql.NVarChar(100), caseData.номер || null)
-            .input('komu_oplata', sql.NVarChar(200), caseData.комуОплата || null)
-            .input('zakazchik', sql.NVarChar(200), caseData.заказчик || null)
-            .input('telefon', sql.NVarChar(50), caseData.телефон || null)
-            .input('komentarii', sql.NVarChar(sql.MAX), caseData.дополнение || null)
+            .input('prodlen_1', sql.NVarChar(50), caseData.месяц || '')
+            .input('dokumenty', sql.NVarChar(sql.MAX), caseData.документы || '')
+            .input('nomer', sql.NVarChar(100), caseData.номер || '')
+            .input('komu_oplata', sql.NVarChar(200), caseData.комуОплата || '')
+            .input('zakazchik', sql.NVarChar(200), caseData.заказчик || '')
+            .input('telefon', sql.NVarChar(50), caseData.телефон || '')
+            .input('komentarii', sql.NVarChar(sql.MAX), caseData.дополнение || '')
             .input('date', sql.DateTime, new Date())
             .query(query);
 
@@ -444,6 +445,134 @@ app.post('/api/get-all-cases', async (req, res) => {
         res.status(500).json({
             success: false,
             error: err.message
+        });
+    }
+});
+
+// ==========================================
+// 🗑️ МАРШРУТ: Удаление дела
+// ==========================================
+app.post('/api/delete-case', async (req, res) => {
+    try {
+        const { connectionId, caseId, nomerDela, vhNomer } = req.body;
+        console.log(`🗑️ Удаление дела:`, { caseId, nomerDela, vhNomer });
+        
+        const pool = connections.get(connectionId);
+        if (!pool) {
+            return res.status(404).json({
+                success: false,
+                error: 'Подключение не найдено'
+            });
+        }
+
+        // 👇 ИСПОЛЬЗУЕМ CAST для совместимости TEXT и NVARCHAR
+        // И удаляем по входящему номеру (он обычно уникальнее)
+        const result = await pool.request()
+            .input('vh_nomer', sql.NVarChar(100), vhNomer)
+            .input('nomer_dela', sql.NVarChar(100), nomerDela)
+            .query(`
+                DELETE FROM dbo.baza 
+                WHERE CAST(vh_nomer AS NVARCHAR(100)) = CAST(@vh_nomer AS NVARCHAR(100))
+                AND CAST(nomer_dela AS NVARCHAR(100)) = CAST(@nomer_dela AS NVARCHAR(100))
+            `);
+
+        console.log(`✅ Удалено строк: ${result.rowsAffected[0]}`);
+        
+        if (result.rowsAffected[0] === 0) {
+            return res.json({
+                success: false,
+                error: 'Дело не найдено в базе',
+                message: 'Возможно, дело уже было удалено или данные не совпадают'
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: 'Дело удалено',
+            rowsAffected: result.rowsAffected[0]
+        });
+
+    } catch (err) {
+        console.error('❌ Ошибка удаления дела:', err.message);
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+});
+
+// ==========================================
+// 📁 МАРШРУТ: Открытие/создание сетевой папки
+// ==========================================
+const { exec } = require('child_process');
+const fs = require('fs').promises;
+const path = require('path');
+
+app.post('/api/open-folder', async (req, res) => {
+    try {
+        const { court, folderName } = req.body;
+        console.log(`📁 Запрос на папку: суд="${court}", папка="${folderName}"`);
+        
+        // 👇 Базовый сетевой путь (используй тот, что доступен серверу)
+        const baseNetworkPath = '\\\\192.168.43.92\\g\\экспертизы';
+        
+        // Очищаем имена от опасных символов для файловой системы
+        const safeCourt = (court || 'Без_суда').trim().replace(/[<>:"|?*]/g, '_');
+        const safeFolder = (folderName || 'Новая_папка').trim().replace(/[<>:"|?*]/g, '_');
+        
+        // Полный путь к папке дела
+        const caseFolderPath = path.join(baseNetworkPath, safeCourt, safeFolder);
+        console.log(`📁 Целевая папка: ${caseFolderPath}`);
+        
+        // 👇 Создаём основную папку + подпапки
+        const subfolders = ['sud', 'дело', 'фото'];
+        
+        for (const subfolder of subfolders) {
+            const subfolderPath = path.join(caseFolderPath, subfolder);
+            try {
+                await fs.mkdir(subfolderPath, { recursive: true });
+                console.log(`✅ Создана папка: ${subfolderPath}`);
+            } catch (err) {
+                // Если папка уже существует — это нормально
+                if (err.code !== 'EEXIST') {
+                    console.warn(`⚠️ Не удалось создать ${subfolderPath}: ${err.message}`);
+                }
+            }
+        }
+        
+        // 👇 Открываем папку в проводнике Windows
+        // Используем правильный синтаксис для UNC-путей
+        const escapedPath = caseFolderPath.replace(/\\/g, '\\\\');
+        const command = `cmd.exe /c start "" "${escapedPath}"`;
+        
+        console.log(`🚀 Выполняю команду: ${command}`);
+        
+        exec(command, { cwd: baseNetworkPath }, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`❌ Ошибка exec: ${error.message}`);
+                // Не возвращаем ошибку клиенту — папки всё равно созданы
+                return res.json({ 
+                    success: true, 
+                    message: 'Папки созданы, но не удалось открыть проводник',
+                    createdPath: caseFolderPath,
+                    warning: error.message 
+                });
+            }
+            console.log(`✅ Проводник открыт: ${caseFolderPath}`);
+            res.json({ 
+                success: true, 
+                message: 'Папки созданы и открыты',
+                createdPath: caseFolderPath,
+                subfolders: subfolders.map(s => path.join(caseFolderPath, s))
+            });
+        });
+        
+    } catch (err) {
+        console.error('❌ Ошибка в open-folder:', err.message);
+        res.status(500).json({ 
+            success: false, 
+            error: err.message,
+            details: err.stack 
         });
     }
 });

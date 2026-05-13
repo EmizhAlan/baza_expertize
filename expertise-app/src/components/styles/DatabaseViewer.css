@@ -224,6 +224,52 @@
     color: #333;
 }
 
+/* Контекстное меню (правый клик) */
+.context-menu {
+    background: white;
+    border: 1px solid #a0a0a0;
+    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    padding: 4px 0;
+    min-width: 180px;
+    z-index: 1000;
+}
+
+.context-menu-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.1s;
+}
+
+.context-menu-item:hover {
+    background: #e8e8e8;
+}
+
+.context-menu-item.delete {
+    color: #c00;
+    border-top: 1px solid #e0e0e0;
+    margin-top: 4px;
+    padding-top: 8px;
+}
+
+.context-menu-item.delete:hover {
+    background: #ffe0e0;
+}
+
+/* Курсор для строк таблицы */
+.cases-table tbody tr {
+    cursor: context-menu;
+}
+
+.cases-table tbody tr:hover {
+    background: #f5f5f5;
+}
+
 .cases-table tr:hover {
     background: #f9f9f9;
 }

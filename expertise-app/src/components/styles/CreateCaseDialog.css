@@ -365,6 +365,20 @@
     margin-left: auto;
 }
 
+.input-with-datalist {
+    flex: 1;
+    position: relative;
+}
+
+.input-with-datalist .form-input {
+    width: 100%;
+}
+
+/* Стилизация выпадающих подсказок (работает в большинстве браузеров) */
+.input-with-datalist datalist {
+    font-size: 12px;
+}
+
 .radio-group-title {
     font-size: 11px;
     font-weight: 600;
@@ -393,6 +407,60 @@
 
 .work-checkbox-wrapper {
     margin-left: auto;
+}
+
+.date-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.date-input-wrapper .form-input {
+    flex: 1;
+    padding-right: 32px; /* Место для кнопки */
+}
+
+.calendar-icon-btn {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+    z-index: 1;
+}
+
+.calendar-icon-btn:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 3px;
+}
+
+.calendar-icon-btn:active {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.custom-date-input {
+    position: relative;
+    flex: 1;
+    min-width: 130px;
+    display: flex;
+    align-items: center;
+}
+
+.custom-date-input .form-input {
+    padding-right: 32px;
+    width: 100%;
 }
 
 /* Footer с кнопками */

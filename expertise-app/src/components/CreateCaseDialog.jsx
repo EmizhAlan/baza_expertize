@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import logoImage from './images/favicon.ico';
 import './styles/CreateCaseDialog.css';
+import { formatRussianDate, parseManualDate } from '../utils/dateFormatter';
 
 const CreateCaseDialog = ({ isOpen, onClose, onSave, userData }) => {
     const [activeTab, setActiveTab] = useState('поручение');
@@ -57,10 +58,20 @@ const CreateCaseDialog = ({ isOpen, onClose, onSave, userData }) => {
     const handleSave = () => {
         const caseData = {
             ...formData,
+            // Сохранение 30 дней
+            kolichestvo_dnej: 30, 
+            // 👇 Конвертируем ВСЕ даты в русский формат перед отправкой
+            датаНачала: formatRussianDate(formData.датаНачала) || formData.датаНачала,
+            датаОкончания: formatRussianDate(formData.датаОкончания) || formData.датаОкончания,
+            датаОсмотра: formatRussianDate(formData.датаОсмотра) || formData.датаОсмотра,
+            датаОпределения: formatRussianDate(formData.датаОпределения) || formData.датаОпределения,
+            
             id: Date.now(),
             createdAt: new Date().toISOString(),
             createdBy: userData?.username || 'unknown'
         };
+        
+        console.log('📦 Отправляем в БД:', caseData);
         onSave(caseData);
         onClose();
     };
@@ -118,20 +129,27 @@ const CreateCaseDialog = ({ isOpen, onClose, onSave, userData }) => {
     
     // Функция для добавления месяца к дате
     const добавитьМесяц = () => {
-        const дата = new Date(formData.датаОкончания);
-        дата.setMonth(дата.getMonth() + 1);
-        const новаяДата = дата.toISOString().split('T')[0];
+        // Безопасно парсим дату без сдвигов часовых поясов
+        const [год, месяц, день] = formData.датаОкончания.split('-').map(Number);
+        const дата = new Date(год, месяц - 1, день);
+        
+        // Прибавляем ровно 30 дней
+        дата.setDate(дата.getDate() + 30);
+        
+        // Собираем обратно в строку YYYY-MM-DD
+        const новаяДата = `${дата.getFullYear()}-${String(дата.getMonth() + 1).padStart(2, '0')}-${String(дата.getDate()).padStart(2, '0')}`;
+        
         handleInputChange('датаОкончания', новаяДата);
     };
     
     // Функция для продления
-    const продлить = () => {
+    /*const продлить = () => {
         if (продленоДо) {
             handleInputChange('датаОкончания', продленоДо);
             setПоказатьПродление(false);
             setПродленоДо('');
         }
-    };
+    };*/
 
     if (!isOpen) return null;
 
@@ -207,12 +225,48 @@ const CreateCaseDialog = ({ isOpen, onClose, onSave, userData }) => {
                                     <div></div>
                                     <div></div>
                                     <div></div>
+                                    {/* Пример для даты начала */}
                                     <div className="date-field">
                                         <label className="date-label">дата начала</label>
                                         <div className="date-input-wrapper">
+                                            {/* 👁️ Видимое поле с русской датой */}
+                                            <input
+                                                type="text"
+                                                className="form-input date-input"
+                                                value={formatRussianDate(formData.датаНачала)}
+                                                onChange={(e) => {
+                                                    // Парсим ручной ввод пользователя
+                                                    const inputValue = e.target.value;
+                                                    const parsedDate = parseManualDate(inputValue);
+                                                    if (parsedDate) {
+                                                        handleInputChange('датаНачала', parsedDate);
+                                                    }
+                                                }}
+                                                placeholder="дд.мм.гггг"
+                                            />
+                                            {/* 📅 Кнопка календаря */}
+                                            <button 
+                                                type="button"
+                                                className="calendar-icon-btn"
+                                                onClick={() => {
+                                                    const hiddenInput = document.getElementById('hidden-датаНачала');
+                                                    if (hiddenInput) hiddenInput.showPicker?.() || hiddenInput.click();
+                                                }}
+                                                tabIndex={-1}
+                                            >
+                                                📅
+                                            </button>
+                                            {/* 👁️‍️ Скрытый input type="date" */}
                                             <input
                                                 type="date"
-                                                className="form-input date-input"
+                                                id="hidden-датаНачала"
+                                                style={{ 
+                                                    position: 'absolute',
+                                                    opacity: 0,
+                                                    pointerEvents: 'none',
+                                                    width: '1px',
+                                                    height: '1px'
+                                                }}
                                                 value={formData.датаНачала}
                                                 onChange={(e) => handleInputChange('датаНачала', e.target.value)}
                                             />
@@ -222,36 +276,100 @@ const CreateCaseDialog = ({ isOpen, onClose, onSave, userData }) => {
                                     <div className="date-field">
                                         <label className="date-label">дата определения</label>
                                         <div className="date-input-wrapper">
+                                            {/* 👁️ Видимое поле с русской датой и ручным вводом */}
+                                            <input
+                                                type="text"
+                                                className="form-input date-input"
+                                                value={formatRussianDate(formData.датаОпределения)}
+                                                onChange={(e) => {
+                                                    // Парсим то, что ввел пользователь (например "15.05.2026" или "15 мая 2026")
+                                                    const parsed = parseManualDate(e.target.value);
+                                                    if (parsed) {
+                                                        handleInputChange('датаОпределения', parsed);
+                                                    }
+                                                }}
+                                                placeholder="дд.мм.гггг"
+                                                autoComplete="off"
+                                            />
+                                            
+                                            {/* 📅 Кнопка календаря */}
+                                            <button 
+                                                type="button"
+                                                className="calendar-icon-btn"
+                                                onClick={() => {
+                                                    const hiddenInput = document.getElementById('hidden-датаОпределения');
+                                                    if (hiddenInput) {
+                                                        // Попытка открыть нативный пикер, если поддерживается
+                                                        if (hiddenInput.showPicker) {
+                                                            hiddenInput.showPicker();
+                                                        } else {
+                                                            hiddenInput.focus();
+                                                        }
+                                                    }
+                                                }}
+                                                tabIndex={-1}
+                                            >
+                                                📅
+                                            </button>
+                                    
+                                            {/* 👁️‍🗨️ Скрытый input для реального выбора даты через календарь */}
                                             <input
                                                 type="date"
-                                                className="form-input date-input"
+                                                id="hidden-датаОпределения"
+                                                style={{ 
+                                                    position: 'absolute', 
+                                                    opacity: 0, 
+                                                    width: 0, 
+                                                    height: 0, 
+                                                    pointerEvents: 'none' 
+                                                }}
                                                 value={formData.датаОпределения}
                                                 onChange={(e) => handleInputChange('датаОпределения', e.target.value)}
                                             />
-                                        
                                         </div>
                                     </div>
 
                                     
                                 </div>
 
-                                <div className="date-ro">
-                                    <div className="form-row">
-                                        <label className="field-label">дата окончания</label>
-                                        <div className="inline-controls">
+                                <div className="form-row">
+                                    <label className="field-label">дата окончания</label>
+                                    <div className="inline-controls">
+                                        {/* 👇 Новое поле даты с русским форматом */}
+                                        <div className="custom-date-input">
+                                            <input
+                                                type="text"
+                                                className="form-input"
+                                                value={formatRussianDate(formData.датаОкончания)}
+                                                onChange={(e) => {
+                                                    const parsed = parseManualDate(e.target.value);
+                                                    if (parsed) handleInputChange('датаОкончания', parsed);
+                                                }}
+                                                placeholder="дд.мм.гггг"
+                                                autoComplete="off"
+                                            />
+                                            <button 
+                                                type="button"
+                                                className="calendar-icon-btn"
+                                                onClick={() => {
+                                                    const hidden = document.getElementById('hidden-датаОкончания');
+                                                    hidden?.showPicker?.() || hidden?.focus();
+                                                }}
+                                                tabIndex={-1}
+                                            >
+                                                📅
+                                            </button>
                                             <input
                                                 type="date"
-                                                className="form-input date-input"
+                                                id="hidden-датаОкончания"
+                                                style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
                                                 value={formData.датаОкончания}
                                                 onChange={(e) => handleInputChange('датаОкончания', e.target.value)}
                                             />
-                                            <button 
-                                            type="button"
-                                            className="btn-small"
-                                            onClick={добавитьМесяц}
-                                        >
-                                            месяц
-                                        </button>
+                                        </div>
+                                        
+                                        <button type="button" className="btn-small" onClick={добавитьМесяц}>месяц</button>
+                                        
                                         <label className="checkbox-label">
                                             <input
                                                 type="checkbox"
@@ -263,29 +381,48 @@ const CreateCaseDialog = ({ isOpen, onClose, onSave, userData }) => {
                                             />
                                             продлить
                                         </label>
-                                        </div>
                                     </div>
-
                                 </div>
                                 
                                 {показатьПродление && (
-                                    <div className="form-row" style={{marginTop: '4px'}}>
-                                        <label className="field-label" style={{color: '#c00'}}>продлено до</label>
+                                    <div className="form-row" style={{ marginTop: '4px' }}>
+                                        <label className="field-label" style={{ color: '#c00' }}>продлено до</label>
                                         <div className="inline-controls">
-                                            <input
-                                                type="date"
-                                                className="form-input date-input"
-                                                value={продленоДо}
-                                                onChange={(e) => setПродленоДо(e.target.value)}
-                                            />
-                                            <button 
-                                                type="button"
-                                                className="btn-small"
-                                                onClick={продлить}
-                                            >
-                                                продлить
-                                            </button>
-                                            
+                                            <div className="custom-date-input">
+                                                <input
+                                                    type="text"
+                                                    className="form-input"
+                                                    value={formatRussianDate(продленоДо)}
+                                                    onChange={(e) => {
+                                                        const parsed = parseManualDate(e.target.value);
+                                                        if (parsed) setПродленоДо(parsed);
+                                                    }}
+                                                    placeholder="дд.мм.гггг"
+                                                    autoComplete="off"
+                                                />
+                                                <button 
+                                                    type="button"
+                                                    className="calendar-icon-btn"
+                                                    onClick={() => {
+                                                        const hidden = document.getElementById('hidden-продленоДо');
+                                                        hidden?.showPicker?.() || hidden?.focus();
+                                                    }}
+                                                    tabIndex={-1}
+                                                >
+                                                    📅
+                                                </button>
+                                                <input
+                                                    type="date"
+                                                    id="hidden-продленоДо"
+                                                    style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
+                                                    value={продленоДо}
+                                                    onChange={(e) => setПродленоДо(e.target.value)}
+                                                />
+                                            </div>
+                                            <button type="button" className="btn-small" onClick={() => {
+                                                if (продленоДо) handleInputChange('датаОкончания', продленоДо);
+                                                setПоказатьПродление(false);
+                                            }}>продлить</button>
                                         </div>
                                     </div>
                                 )}
@@ -402,12 +539,16 @@ const CreateCaseDialog = ({ isOpen, onClose, onSave, userData }) => {
                                             value={formData.стоимость}
                                             onChange={(e) => handleInputChange('стоимость', e.target.value)}
                                         />
-                                        <select className="form-input select-small">
-                                            <option value=""></option>
-                                            <option value="">Истец</option>
-                                            <option value="">Ответчик</option>
-                                            <option value="">Совместно</option>
-                                            <option value="">Третьи лица</option>
+                                        <select 
+                                            className="form-input select-small"
+                                            value={formData.комуОплата}
+                                            onChange={(e) => handleInputChange('комуОплата', e.target.value)}
+                                        >
+                                            <option value="">Выберите...</option>
+                                            <option value="Истец">Истец</option>
+                                            <option value="Ответчик">Ответчик</option>
+                                            <option value="Совместно">Совместно</option>
+                                            <option value="Третьи лица">Третьи лица</option>
                                         </select>
                                     </div>
                                 </div>
@@ -497,25 +638,65 @@ const CreateCaseDialog = ({ isOpen, onClose, onSave, userData }) => {
                                 
                                 <div className="form-row">
                                     <label className="field-label">судья</label>
-                                    <select 
-                                        className="form-input"
-                                        value={formData.судья}
-                                        onChange={(e) => handleInputChange('судья', e.target.value)}
-                                        disabled={!formData.судебныйОрган || списокСудей.length === 0}
-                                    >
-                                        <option value=""></option>
-                                        {списокСудей.map((judge, index) => (
-                                            <option key={index} value={judge.fullName}>
-                                                {judge.fullName}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    <div className="input-with-datalist">
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            list="judges-datalist"
+                                            placeholder={списокСудей.length > 0 ? "Начните вводить или выберите..." : "Введите ФИО судьи"}
+                                            value={formData.судья}
+                                            onChange={(e) => handleInputChange('судья', e.target.value)}
+                                        />
+                                        {/* Подсказки из загруженного списка */}
+                                        <datalist id="judges-datalist">
+                                            {списокСудей.map((judge, index) => (
+                                                <option key={index} value={judge.fullName} />
+                                            ))}
+                                        </datalist>
+                                    </div>
                                 </div>
 
                                 <div className="form-row">
                                     <label className="field-label">папка</label>
                                     <div className="input-with-button">
-                                        <button className="btn-action">папка</button>
+                                        <button 
+                                            className="btn-action"
+                                            type="button"
+                                            onClick={async () => {
+                                                const court = formData.судебныйОрган?.trim();
+                                                const folderName = formData.папка?.trim();
+                                                
+                                                if (!court) {
+                                                    alert('⚠️ Сначала выберите судебный орган');
+                                                    return;
+                                                }
+                                                
+                                                console.log('📁 Открываю папку:', { court, folderName });
+                                                
+                                                try {
+                                                    const API_URL = process.env.REACT_APP_API_URL || 'http://192.168.40.52:5000';
+                                                    
+                                                    const response = await fetch(`${API_URL}/api/open-folder`, {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ court, folderName })
+                                                    });
+                                                    
+                                                    const data = await response.json();
+                                                    console.log('📥 Ответ сервера:', data);
+                                                    
+                                                    if (!data.success) {
+                                                        alert('❌ ' + (data.error || 'Не удалось открыть папку'));
+                                                    }
+                                                    // Если успешно — папка уже открыта через explorer.exe
+                                                } catch (err) {
+                                                    console.error('🌐 Ошибка запроса:', err);
+                                                    alert('Не удалось связаться с сервером для открытия папки');
+                                                }
+                                            }}
+                                        >
+                                            папка
+                                        </button>
                                         <input
                                             type="text"
                                             className="form-input"

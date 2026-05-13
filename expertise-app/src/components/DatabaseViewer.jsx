@@ -16,7 +16,16 @@ const DatabaseViewer = () => {
     const [userCases, setUserCases] = useState([]);
     const [allCases, setAllCases] = useState([]);
     const [currentUser, setCurrentUser] = useState(null);
-    const [basesFilter, setBasesFilter] = useState('все'); // 'все' | 'в работе' | 'выполненные'
+    const [basesFilter, setBasesFilter] = useState('все');
+    
+    // 👇 НОВЫЕ СОСТОЯНИЯ ДЛЯ КОНТЕКСТНОГО МЕНЮ
+    const [contextMenu, setContextMenu] = useState({
+        visible: false,
+        x: 0,
+        y: 0,
+        selectedCase: null
+    });
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
     useEffect(() => {
         const savedConnection = localStorage.getItem('dbConnection');
@@ -31,14 +40,12 @@ const DatabaseViewer = () => {
         }
     }, []);
 
-    // Загружаем дела пользователя при переключении на вкладку "create" или "work"
     useEffect(() => {
         if (currentUser && (activeTab === 'create' || activeTab === 'work')) {
             loadUserCases();
         }
     }, [activeTab, currentUser]);
 
-    // Загружаем дела при переключении на вкладку "Базы" или изменении фильтра
     useEffect(() => {
         if (currentUser && activeTab === 'bases') {
             loadAllCases(basesFilter);
@@ -58,6 +65,11 @@ const DatabaseViewer = () => {
             });
             
             if (response.data.success) {
+                console.log('📦 Получено дел:', response.data.cases.length);
+                if (response.data.cases.length > 0) {
+                    console.log('🔍 Пример первого дела:', response.data.cases[0]);
+                    console.log('🔑 Доступные ключи:', Object.keys(response.data.cases[0]));
+                }
                 setUserCases(response.data.cases);
             } else {
                 alert('Ошибка загрузки дел: ' + response.data.error);
@@ -77,7 +89,7 @@ const DatabaseViewer = () => {
         try {
             const response = await axios.post(`${API_URL}/api/get-all-cases`, {
                 connectionId: connection.connectionId,
-                filter: filter  // 👈 Передаём фильтр на сервер
+                filter: filter
             });
             
             if (response.data.success) {
@@ -93,10 +105,9 @@ const DatabaseViewer = () => {
         }
     };
     
-    // Обновите useEffect для вкладки "Базы":
     useEffect(() => {
         if (currentUser && activeTab === 'bases') {
-            loadAllCases(); // 👈 Без параметров
+            loadAllCases();
         }
     }, [activeTab, currentUser]); 
     
@@ -168,8 +179,11 @@ const DatabaseViewer = () => {
             if (response.data.success) {
                 alert('✅ Дело успешно сохранено в базу!');
                 setIsDialogOpen(false);
-                // Перезагружаем список дел
+                setIsEditDialogOpen(false);
                 loadUserCases();
+                if (activeTab === 'bases') {
+                    loadAllCases(basesFilter);
+                }
             } else {
                 alert('Ошибка: ' + response.data.error);
             }
@@ -178,6 +192,78 @@ const DatabaseViewer = () => {
             alert('Не удалось сохранить: ' + err.message);
         }
     };
+
+    // 👇 ФУНКЦИЯ УДАЛЕНИЯ ДЕЛА
+    const handleDeleteCase = async (caseItem) => {
+        console.log('🗑️ Удаляем дело:', caseItem); // 👈 Смотри структуру в консоли
+        
+        // 👇 Берём реальные значения из объекта
+        const nomerDela = caseItem.номер_дела || caseItem.nomer_dela || '';
+        const vhNomer = caseItem.входящий_номер || caseItem.vh_nomer || '';
+        
+        // Если оба пустые - пробуем по дате и адресу (менее надёжно)
+        
+        
+        const confirmDelete = window.confirm(
+            `Вы уверены, что хотите удалить дело?\n\n` +
+            `📋 Номер дела: ${nomerDela || 'N/A'}\n` +
+            `📥 Входящий номер: ${vhNomer || 'N/A'}\n` +
+            `📍 Адрес: ${caseItem.адрес?.substring(0, 50) || 'N/A'}...\n` +
+            `📅 Дата: ${caseItem.дата_поступления || 'N/A'}`
+        );
+        
+        if (!confirmDelete) return;
+        
+        try {
+            const response = await axios.post(`${API_URL}/api/delete-case`, {
+                connectionId: connection.connectionId,
+                caseId: caseItem.id || null,
+                nomerDela: nomerDela,
+                vhNomer: vhNomer
+            });
+            
+            if (response.data.success) {
+                alert(`✅ Дело успешно удалено!\nУдалено записей: ${response.data.rowsAffected}`);
+                loadUserCases();
+                if (activeTab === 'bases') {
+                    loadAllCases(basesFilter);
+                }
+            } else {
+                alert('❌ Ошибка при удалении: ' + (response.data.error || response.data.message));
+            }
+        } catch (err) {
+            console.error('Ошибка удаления:', err);
+            alert('Не удалось удалить дело: ' + err.message);
+        }
+    };
+
+    // 👇 ОБРАБОТЧИК ПРАВОГО КЛИКА
+    const handleContextMenu = (e, caseItem) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        setContextMenu({
+            visible: true,
+            x: e.clientX,
+            y: e.clientY,
+            selectedCase: caseItem
+        });
+    };
+
+    // 👇 ЗАКРЫТИЕ МЕНЮ ПРИ КЛИКЕ ВНЕ ЕГО
+    useEffect(() => {
+        const handleClick = () => {
+            setContextMenu(prev => ({ ...prev, visible: false }));
+        };
+        
+        if (contextMenu.visible) {
+            document.addEventListener('click', handleClick);
+        }
+        
+        return () => {
+            document.removeEventListener('click', handleClick);
+        };
+    }, [contextMenu.visible]);
 
     const handleLogout = () => {
         localStorage.removeItem('dbConnection');
@@ -197,7 +283,6 @@ const DatabaseViewer = () => {
         return names[tab] || tab;
     };
 
-    // Форматируем дату для отображения
     const formatDate = (dateString) => {
         if (!dateString) return '-';
         try {
@@ -206,7 +291,7 @@ const DatabaseViewer = () => {
                 day: 'numeric',
                 month: 'long',
                 year: 'numeric'
-            }) + ' г.';
+            }) + '';
         } catch {
             return dateString;
         }
@@ -238,7 +323,7 @@ const DatabaseViewer = () => {
                         onClick={() => {
                             setActiveTab(tab);
                             if (tab === 'create') {
-                                setIsDialogOpen(false); // Не открываем диалог сразу
+                                setIsDialogOpen(false);
                             }
                         }}
                     >
@@ -247,13 +332,57 @@ const DatabaseViewer = () => {
                 ))}
             </div>
 
-            {/* Диалоговое окно создания дела */}
+            {/* Диалоговое окно создания/редактирования дела */}
             <CreateCaseDialog 
-                isOpen={isDialogOpen}
-                onClose={() => setIsDialogOpen(false)}
+                isOpen={isDialogOpen || isEditDialogOpen}
+                onClose={() => {
+                    setIsDialogOpen(false);
+                    setIsEditDialogOpen(false);
+                }}
                 onSave={handleSaveCase}
                 userData={currentUser}
+                editData={isEditDialogOpen ? contextMenu.selectedCase : null}
             />
+
+            {/* 👇 КОНТЕКСТНОЕ МЕНЮ */}
+            {contextMenu.visible && (
+                <div 
+                    className="context-menu"
+                    style={{
+                        position: 'fixed',
+                        left: contextMenu.x,
+                        top: contextMenu.y,
+                        zIndex: 1000
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="context-menu-item" onClick={() => {
+                        setIsDialogOpen(true);
+                        setContextMenu(prev => ({ ...prev, visible: false }));
+                    }}>
+                        📝 создать
+                    </div>
+                    <div className="context-menu-item" onClick={() => {
+                        setIsEditDialogOpen(true);
+                        setContextMenu(prev => ({ ...prev, visible: false }));
+                    }}>
+                        ✏️ редактировать
+                    </div>
+                    <div className="context-menu-item delete" onClick={() => {
+                        handleDeleteCase(contextMenu.selectedCase);
+                        setContextMenu(prev => ({ ...prev, visible: false }));
+                    }}>
+                        🗑️ удалить
+                    </div>
+                    <div className="context-menu-item" onClick={() => {
+                        // Функция "найти" будет позже
+                        alert('Функция "найти" в разработке');
+                        setContextMenu(prev => ({ ...prev, visible: false }));
+                    }}>
+                        🔍 найти
+                    </div>
+                </div>
+            )}
 
             {/* Вкладка "Создать" - показывает дела пользователя + кнопка создать */}
             {(activeTab === 'create' || activeTab === 'work') && (
@@ -299,7 +428,11 @@ const DatabaseViewer = () => {
                                 </thead>
                                 <tbody>
                                     {userCases.map((caseItem, index) => (
-                                        <tr key={index}>
+                                        <tr 
+                                            key={index}
+                                            onContextMenu={(e) => handleContextMenu(e, caseItem)}
+                                            style={{ cursor: 'context-menu' }}
+                                        >
                                             <td>{formatDate(caseItem.дата_поступления)}</td>
                                             <td>{caseItem.вид || '-'}</td>
                                             <td>{caseItem.входящий_номер || '-'}</td>
@@ -333,7 +466,6 @@ const DatabaseViewer = () => {
                                 value={basesFilter}
                                 onChange={(e) => {
                                     setBasesFilter(e.target.value);
-                                    // loadAllCases вызывается автоматически через useEffect
                                 }}
                             >
                                 <option value="все">Все дела</option>
@@ -360,18 +492,22 @@ const DatabaseViewer = () => {
                                 <thead>
                                     <tr>
                                         <th className="col-date">дата поступления</th>
-                                        <th className="col-vid">вид</th>
-                                        <th className="col-vh">вх. номер</th>
+                                        <th className="col-vid">вид экспертиз</th>
+                                        <th className="col-vh">входящий номер</th>
                                         <th className="col-nomer">номер дела</th>
                                         <th className="col-adres">адрес</th>
                                         <th className="col-status">статус</th>
                                         <th className="col-ispoln">исполнитель</th>
-                                        <th className="col-sovm">совм.</th>
+                                        <th className="col-sovm">совместно</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {allCases.map((caseItem, index) => (
-                                        <tr key={index}>
+                                        <tr 
+                                            key={index}
+                                            onContextMenu={(e) => handleContextMenu(e, caseItem)}
+                                            style={{ cursor: 'context-menu' }}
+                                        >
                                             <td>{formatDate(caseItem.дата_поступления)}</td>
                                             <td>{caseItem.вид || '-'}</td>
                                             <td>{caseItem.входящий_номер || '-'}</td>
@@ -395,7 +531,6 @@ const DatabaseViewer = () => {
                 </div>
             )}
             
-            {/* Остальные вкладки */}
             {activeTab === 'edit' && <div className="tab-content"><h3>Правка</h3><p>Функция в разработке</p></div>}
             {activeTab === 'payment' && <div className="tab-content"><h3>Оплата</h3><p>Функция в разработке</p></div>}
             {activeTab === 'report' && <div className="tab-content"><h3>Отчет</h3><p>Функция в разработке</p></div>}
