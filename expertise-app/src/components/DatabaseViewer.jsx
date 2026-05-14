@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import * as XLSX from 'xlsx';
 import CreateCaseDialog from './CreateCaseDialog';
 import './styles/DatabaseViewer.css';
 
@@ -47,7 +48,7 @@ const DatabaseViewer = () => {
     }, [activeTab, currentUser]);
 
     useEffect(() => {
-        if (currentUser && activeTab === 'bases') {
+        if (currentUser && (activeTab === 'bases' || activeTab === 'report')) {
             loadAllCases(basesFilter);
         }
     }, [activeTab, basesFilter, currentUser]);
@@ -93,6 +94,10 @@ const DatabaseViewer = () => {
             });
             
             if (response.data.success) {
+                console.log('📊 Отчет: получено дел:', response.data.cases.length);
+                if (response.data.cases.length > 0) {
+                    console.log('🔍 Первое дело (проверь имена полей):', response.data.cases[0]);
+                }
                 setAllCases(response.data.cases);
             } else {
                 alert('Ошибка: ' + response.data.error);
@@ -285,8 +290,16 @@ const DatabaseViewer = () => {
 
     const formatDate = (dateString) => {
         if (!dateString) return '-';
+        
+        // Если дата уже в русском формате (содержит "г." или русские буквы месяца)
+        if (typeof dateString === 'string' && (dateString.includes('г.') || /[а-яё]/i.test(dateString))) {
+            return dateString;
+        }
+    
         try {
             const date = new Date(dateString);
+            if (isNaN(date.getTime())) return dateString; // Если не распарсилось — возвращаем как есть
+            
             return date.toLocaleDateString('ru-RU', {
                 day: 'numeric',
                 month: 'long',
@@ -300,6 +313,65 @@ const DatabaseViewer = () => {
     if (!connection) {
         return <div>Загрузка...</div>;
     }
+
+
+    const exportToExcel = () => {
+        const excelData = allCases.map((item, index) => {
+            // Логика та же, что в calculateDeadline
+            let endDateValue = (item.prodlen_otmetka === '1' || item.prodlen_otmetka === 1) 
+                ? item.prodlen_1 
+                : item.дата_окончания;
+            const deadlineText = endDateValue ? `срок до ${formatDate(endDateValue)}` : '-';
+            
+            return {
+                "№": index + 1,
+                "Дата входного письма": item.дата_поступления || '',
+                "Номер входного письма": item.входящий_номер || '',
+                "Номер дела": item.номер_дела || '',
+                "Наименование суда": item.судебныйОрган || item.sudebnyj_organ || '',
+                "Срок выполнения": deadlineText,
+                "Исполнитель": item.исполнитель || '',
+                "Цель экспертизы": item.вид || ''
+            };
+        });
+    
+        const ws = XLSX.utils.json_to_sheet(excelData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Отчет");
+    
+        ws['!cols'] = [
+            { wch: 5 },   // №
+            { wch: 20 },  // Дата входного письма
+            { wch: 20 },  // Номер входного письма
+            { wch: 15 },  // Номер дела
+            { wch: 35 },  // Наименование суда
+            { wch: 25 },  // Срок выполнения
+            { wch: 15 },  // Исполнитель
+            { wch: 25 }   // Цель экспертизы
+        ];
+    
+        const today = new Date().toLocaleDateString('ru-RU').replace(/\./g, '-');
+        XLSX.writeFile(wb, `Отчет_экспертиз_${today}.xlsx`);
+    };
+
+    // Расчёт срока выполнения в днях
+    // Форматирует дату окончания как "срок до 15 мая 2026 г."
+    const calculateDeadline = (item) => {
+        // 1. Выбираем нужную дату окончания
+        const isExtended = item.prodlen_otmetka === '1' || item.prodlen_otmetka === 1;
+        let targetDate = isExtended ? item.prodlen_1 : item.дата_окончания;
+    
+        // 2. Если даты нет
+        if (!targetDate) return '-';
+    
+        // 3. Форматируем через нашу надёжную функцию
+        const formatted = formatDate(targetDate);
+        
+        // 4. Если форматирование не сработало
+        if (formatted === '-' || formatted.includes('Invalid')) return '-';
+    
+        return `срок до ${formatted}`;
+    };
 
     return (
         <div className="database-viewer">
@@ -533,7 +605,58 @@ const DatabaseViewer = () => {
             
             {activeTab === 'edit' && <div className="tab-content"><h3>Правка</h3><p>Функция в разработке</p></div>}
             {activeTab === 'payment' && <div className="tab-content"><h3>Оплата</h3><p>Функция в разработке</p></div>}
-            {activeTab === 'report' && <div className="tab-content"><h3>Отчет</h3><p>Функция в разработке</p></div>}
+            {activeTab === 'report' && (
+                <div className="report-container">
+                    <div className="report-header">
+                        <h3>📊 Отчет по экспертизам</h3>
+                        <button className="btn-export-excel" onClick={exportToExcel}>
+                            📥 Экспорт в Excel
+                        </button>
+                    </div>
+            
+                    {loading && <div className="loading">Загрузка данных отчета...</div>}
+            
+                    {!loading && allCases.length === 0 && (
+                        <p className="no-cases">Нет данных для формирования отчета</p>
+                    )}
+            
+                    {!loading && allCases.length > 0 && (
+                        <div className="cases-table-wrapper">
+                            <div className="table-info">
+                                Найдено: <strong>{allCases.length}</strong> записей
+                            </div>
+                            <table className="cases-table report-table">
+                                <thead>
+                                    <tr>
+                                        <th style={{ width: '50px', textAlign: 'center' }}>№</th>
+                                        <th>Дата вх письма</th>
+                                        <th>Номер вх письма</th>
+                                        <th>Номер дела</th>
+                                        <th>Наименование суда, назначившего экспертизу</th>
+                                        <th>Срок выполнения, согласно определению суда</th>
+                                        <th>Исполнитель</th>
+                                        <th>Цель экспертизы</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {allCases.map((item, index) => (
+                                        <tr key={index}>
+                                            <td style={{ textAlign: 'center', fontWeight: '500', width: '40px' }}>{index + 1}</td>
+                                            <td>{formatDate(item.дата_поступления)}</td>
+                                            <td>{item.входящий_номер || '-'}</td>
+                                            <td>{item.номер_дела || '-'}</td>
+                                            <td>{item.судебныйОрган || item.sudebnyj_organ || '-'}</td>
+                                            <td>{calculateDeadline(item)}</td>
+                                            <td>{item.исполнитель || '-'}</td>
+                                            <td>{item.вид || '-'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
             {activeTab === 'print' && <div className="tab-content"><h3>Печать</h3><p>Функция в разработке</p></div>}
         </div>
     );

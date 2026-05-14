@@ -297,7 +297,10 @@ app.post('/api/get-user-cases', async (req, res) => {
                     [ispolnitel_sov] as совместно,
                     [stoimost] as стоимость,
                     [data_nachala] as дата_начала,
-                    [data_okonchaniya] as дата_окончания
+                    [data_okonchaniya] as дата_окончания,
+                    [sudebnyj_organ] as sudebnyj_organ,
+                    [prodlen_otmetka] as prodlen_otmetka,
+                    [prodlen_1] as prodlen_1
                 FROM dbo.baza
                 WHERE CAST([ispolnitel] AS NVARCHAR(100)) = @ispolnitel 
                    OR CAST([ispolnitel_sov] AS NVARCHAR(10)) = '1'
@@ -429,7 +432,10 @@ app.post('/api/get-all-cases', async (req, res) => {
                 [ispolnitel_sov] as совместно,
                 [stoimost] as стоимость,
                 [data_nachala] as дата_начала,
-                [data_okonchaniya] as дата_окончания
+                [data_okonchaniya] as дата_окончания,
+                [sudebnyj_organ] as sudebnyj_organ,
+                [prodlen_otmetka] as prodlen_otmetka,
+                [prodlen_1] as prodlen_1
             FROM dbo.baza
             ${whereClause}
             ORDER BY [date] DESC
