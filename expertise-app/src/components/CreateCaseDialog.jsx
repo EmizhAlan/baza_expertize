@@ -48,6 +48,48 @@ const CreateCaseDialog = ({ isOpen, onClose, onSave, userData }) => {
 
     const [списокСудей, setСписокСудей] = useState([]);
 
+    // Состояние модального окна папки
+    const [folderModal, setFolderModal] = useState({
+        visible: false,
+        loading: false,
+        files: [],
+        folderPath: '',
+        error: null
+    });
+
+    // Состояние файлового менеджера
+    const [folderManager, setFolderManager] = useState({
+        visible: false,
+        loading: false,
+        currentPath: '',
+        relativePath: '',
+        files: [],
+        breadcrumbs: [],
+        error: null,
+        court: '',
+        folderName: ''
+    });
+
+    // Иконки для типов файлов
+const getFileIcon = (fileName) => {
+    const ext = fileName.split('.').pop().toLowerCase();
+    const icons = {
+        pdf: '📕',
+        doc: '📘',
+        docx: '📘',
+        xls: '📗',
+        xlsx: '📗',
+        jpg: '🖼️',
+        jpeg: '🖼️',
+        png: '🖼️',
+        gif: '🖼️',
+        txt: '📄',
+        zip: '📦',
+        rar: '📦'
+    };
+    return icons[ext] || '📄';
+};
+
     const handleInputChange = (field, value) => {
         setFormData(prev => ({
             ...prev,
@@ -140,6 +182,268 @@ const CreateCaseDialog = ({ isOpen, onClose, onSave, userData }) => {
         const новаяДата = `${дата.getFullYear()}-${String(дата.getMonth() + 1).padStart(2, '0')}-${String(дата.getDate()).padStart(2, '0')}`;
         
         handleInputChange('датаОкончания', новаяДата);
+    };
+
+    // Открытие модального окна со списком файлов
+    const openFolderModal = async () => {
+        const court = formData.судебныйОрган?.trim();
+        const folderName = formData.папка?.trim();
+        
+        if (!court) {
+            alert('⚠️ Сначала выберите судебный орган');
+            return;
+        }
+        
+        setFolderModal({ visible: true, loading: true, files: [], folderPath: '', error: null });
+        
+        try {
+            const API_URL = process.env.REACT_APP_API_URL || 'http://192.168.40.52:5000';
+            
+            const response = await fetch(`${API_URL}/api/list-folder`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ court, folderName })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                setFolderModal({
+                    visible: true,
+                    loading: false,
+                    files: data.files,
+                    folderPath: data.folderPath,
+                    error: null
+                });
+            } else {
+                setFolderModal(prev => ({ ...prev, loading: false, error: data.error }));
+            }
+        } catch (err) {
+            console.error('🌐 Ошибка:', err);
+            setFolderModal(prev => ({ ...prev, loading: false, error: 'Не удалось связаться с сервером' }));
+        }
+    };
+    
+    // Открытие файла
+    const openFile = (file) => {
+        if (file.isDirectory) return;
+        
+        // Пробуем открыть через file:// протокол
+        const fileUrl = `file:${file.path.replace(/\\/g, '/')}`;
+        
+        try {
+            window.open(fileUrl, '_blank');
+        } catch (e) {
+            // Fallback: показать путь для ручного копирования
+            alert(`📄 Файл: ${file.name}\n\nПуть: ${file.path}\n\nСкопируйте путь в проводник, если файл не открылся.`);
+        }
+    };
+
+    // Открытие файлового менеджера
+    const openFolderManager = async () => {
+        const court = formData.судебныйОрган?.trim();
+        const folderName = formData.папка?.trim();
+        
+        if (!court) {
+            alert('⚠️ Сначала выберите судебный орган');
+            return;
+        }
+        
+        setFolderManager({
+            visible: true,
+            loading: true,
+            currentPath: '',
+            relativePath: '',
+            files: [],
+            breadcrumbs: [],
+            error: null,
+            court,
+            folderName
+        });
+        
+        await loadFolderContent(court, folderName, '');
+    };
+    
+    // Загрузка содержимого папки
+    const loadFolderContent = async (court, folderName, subPath) => {
+        setFolderManager(prev => ({ ...prev, loading: true, error: null }));
+        
+        try {
+            const API_URL = process.env.REACT_APP_API_URL || 'http://192.168.40.52:5000';
+            
+            const response = await fetch(`${API_URL}/api/navigate-folder`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ court, folderName, subPath })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                setFolderManager(prev => ({
+                    ...prev,
+                    loading: false,
+                    currentPath: data.currentPath,
+                    relativePath: data.relativePath,
+                    files: data.files,
+                    breadcrumbs: data.breadcrumbs
+                }));
+            } else {
+                setFolderManager(prev => ({ ...prev, loading: false, error: data.error }));
+            }
+        } catch (err) {
+            console.error('🌐 Ошибка:', err);
+            setFolderManager(prev => ({ ...prev, loading: false, error: 'Не удалось загрузить папку' }));
+        }
+    };
+    
+    // Переход в папку
+    const navigateToFolder = (file) => {
+        if (!file.isDirectory) return;
+        loadFolderContent(
+            folderManager.court,
+            folderManager.folderName,
+            file.relativePath
+        );
+    };
+    
+    // Переход на уровень вверх
+    const navigateUp = () => {
+        const currentBreadcrumbs = folderManager.breadcrumbs;
+        if (currentBreadcrumbs.length === 0) return;
+        
+        const parentPath = currentBreadcrumbs.slice(0, -1).join('\\');
+        loadFolderContent(
+            folderManager.court,
+            folderManager.folderName,
+            parentPath
+        );
+    };
+    
+    // Загрузка файла
+    const handleFileUpload = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const formDataUpload = new FormData();
+        formDataUpload.append('file', file);
+        formDataUpload.append('court', folderManager.court);
+        formDataUpload.append('folderName', folderManager.folderName);
+        formDataUpload.append('subPath', folderManager.relativePath);
+        
+        try {
+            const API_URL = process.env.REACT_APP_API_URL || 'http://192.168.40.52:5000';
+            
+            const response = await fetch(`${API_URL}/api/upload-file`, {
+                method: 'POST',
+                body: formDataUpload
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                await loadFolderContent(
+                    folderManager.court,
+                    folderManager.folderName,
+                    folderManager.relativePath
+                );
+            } else {
+                alert('❌ Ошибка загрузки: ' + data.error);
+            }
+        } catch (err) {
+            console.error('🌐 Ошибка:', err);
+            alert('Не удалось загрузить файл');
+        }
+    };
+    
+    // Скачивание файла
+    const downloadFile = async (file) => {
+        try {
+            const API_URL = process.env.REACT_APP_API_URL || 'http://192.168.40.52:5000';
+            const encodedPath = encodeURIComponent(file.fullPath);
+            
+            window.open(`${API_URL}/api/download-file?filePath=${encodedPath}`, '_blank');
+        } catch (err) {
+            console.error('🌐 Ошибка:', err);
+            alert('Не удалось скачать файл');
+        }
+    };
+    
+    // Удаление файла/папки
+    const deleteItem = async (file) => {
+        if (!window.confirm(`Удалить ${file.isDirectory ? 'папку' : 'файл'} "${file.name}"?`)) {
+            return;
+        }
+        
+        try {
+            const API_URL = process.env.REACT_APP_API_URL || 'http://192.168.40.52:5000';
+            
+            const response = await fetch(`${API_URL}/api/delete-item`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filePath: file.fullPath,
+                    isDirectory: file.isDirectory
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                await loadFolderContent(
+                    folderManager.court,
+                    folderManager.folderName,
+                    folderManager.relativePath
+                );
+            } else {
+                alert('❌ Ошибка удаления: ' + data.error);
+            }
+        } catch (err) {
+            console.error('🌐 Ошибка:', err);
+            alert('Не удалось удалить');
+        }
+    };
+    
+    // Создание папки
+    const createNewFolder = async () => {
+        const folderName = prompt('Введите название папки:');
+        if (!folderName) return;
+        
+        try {
+            const API_URL = process.env.REACT_APP_API_URL || 'http://192.168.40.52:5000';
+            
+            const response = await fetch(`${API_URL}/api/create-folder`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    folderPath: folderManager.currentPath,
+                    newFolderName: folderName
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                await loadFolderContent(
+                    folderManager.court,
+                    folderManager.folderName,
+                    folderManager.relativePath
+                );
+            } else {
+                alert('❌ Ошибка создания: ' + data.error);
+            }
+        } catch (err) {
+            console.error('🌐 Ошибка:', err);
+            alert('Не удалось создать папку');
+        }
+    };
+    
+    // Сканирование документа
+    const scanDocument = async () => {
+        alert('📡 Сканирование\n\nДля сканирования документов необходимо:\n\n1. Установить сканирующее приложение\n2. Отсканировать документ\n3. Файл автоматически появится в папке\n\nИли используйте кнопку "Загрузить" для добавления уже отсканированных файлов.');
+        
+        // Здесь можно вызвать отдельное Windows-приложение для сканирования
+        // Например: window.open('scanner-app://scan', '_blank');
     };
     
     // Функция для продления
@@ -662,49 +966,146 @@ const CreateCaseDialog = ({ isOpen, onClose, onSave, userData }) => {
                                         <button 
                                             className="btn-action"
                                             type="button"
-                                            onClick={async () => {
-                                                const court = formData.судебныйОрган?.trim();
-                                                const folderName = formData.папка?.trim();
-                                                
-                                                if (!court) {
-                                                    alert('⚠️ Сначала выберите судебный орган');
-                                                    return;
-                                                }
-                                                
-                                                console.log('📁 Открываю папку:', { court, folderName });
-                                                
-                                                try {
-                                                    const API_URL = process.env.REACT_APP_API_URL || 'http://192.168.40.52:5000';
-                                                    
-                                                    const response = await fetch(`${API_URL}/api/open-folder`, {
-                                                        method: 'POST',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({ court, folderName })
-                                                    });
-                                                    
-                                                    const data = await response.json();
-                                                    console.log('📥 Ответ сервера:', data);
-                                                    
-                                                    if (!data.success) {
-                                                        alert('❌ ' + (data.error || 'Не удалось открыть папку'));
-                                                    }
-                                                    // Если успешно — папка уже открыта через explorer.exe
-                                                } catch (err) {
-                                                    console.error('🌐 Ошибка запроса:', err);
-                                                    alert('Не удалось связаться с сервером для открытия папки');
-                                                }
-                                            }}
+                                            onClick={openFolderManager}
                                         >
                                             папка
                                         </button>
                                         <input
                                             type="text"
                                             className="form-input"
+                                            placeholder="Название папки"
                                             value={formData.папка}
                                             onChange={(e) => handleInputChange('папка', e.target.value)}
                                         />                                        
                                     </div>
                                 </div>
+                                {/* 👇 МОДАЛЬНОЕ ОКНО ПРОСМОТРА ПАПКИ */}
+                                {/* 👇 ФАЙЛОВЫЙ МЕНЕДЖЕР */}
+{folderManager.visible && (
+    <div className="modal-overlay" onClick={() => setFolderManager(prev => ({ ...prev, visible: false }))}>
+        <div className="modal-window file-manager-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+                <h4>📁 Файловый менеджер: {folderManager.folderName || 'Новая папка'}</h4>
+                <button className="modal-close" onClick={() => setFolderManager(prev => ({ ...prev, visible: false }))}>×</button>
+            </div>
+            
+            {/* Панель инструментов */}
+            <div className="file-manager-toolbar">
+                <button 
+                    className="toolbar-btn" 
+                    onClick={navigateUp}
+                    disabled={folderManager.breadcrumbs.length === 0}
+                    title="Назад"
+                >
+                    ⬆️ Назад
+                </button>
+                <button className="toolbar-btn" onClick={createNewFolder} title="Создать папку">
+                    📁 Новая папка
+                </button>
+                <label className="toolbar-btn upload-btn" title="Загрузить файл">
+                    ⬆️ Загрузить
+                    <input
+                        type="file"
+                        style={{ display: 'none' }}
+                        onChange={handleFileUpload}
+                    />
+                </label>
+                <button className="toolbar-btn" onClick={scanDocument} title="Сканировать">
+                    📡 Сканер
+                </button>
+            </div>
+            
+            {/* Хлебные крошки */}
+            {folderManager.breadcrumbs.length > 0 && (
+                <div className="breadcrumbs">
+                    <span 
+                        className="breadcrumb-item"
+                        onClick={() => loadFolderContent(folderManager.court, folderManager.folderName, '')}
+                    >
+                        📁 Корень
+                    </span>
+                    {folderManager.breadcrumbs.map((crumb, index) => {
+                        const crumbPath = folderManager.breadcrumbs.slice(0, index + 1).join('\\');
+                        return (
+                            <span key={index}>
+                                <span className="breadcrumb-sep">/</span>
+                                <span 
+                                    className="breadcrumb-item"
+                                    onClick={() => loadFolderContent(folderManager.court, folderManager.folderName, crumbPath)}
+                                >
+                                    {crumb}
+                                </span>
+                            </span>
+                        );
+                    })}
+                </div>
+            )}
+            
+            <div className="modal-body">
+                {folderManager.loading ? (
+                    <div className="loading">Загрузка...</div>
+                ) : folderManager.error ? (
+                    <div className="error-message">❌ {folderManager.error}</div>
+                ) : folderManager.files.length === 0 ? (
+                    <div className="empty-folder">
+                        📭 Папка пуста<br/>
+                        <small>Перетащите файлы сюда или нажмите "Загрузить"</small>
+                    </div>
+                ) : (
+                    <div className="file-grid">
+                        {folderManager.files.map((file, index) => (
+                            <div 
+                                key={index}
+                                className={`file-card ${file.isDirectory ? 'is-folder' : ''}`}
+                                onDoubleClick={() => file.isDirectory ? navigateToFolder(file) : downloadFile(file)}
+                            >
+                                <div className="file-card-icon">
+                                    {file.isDirectory ? '📁' : getFileIcon(file.name)}
+                                </div>
+                                <div className="file-card-name" title={file.name}>
+                                    {file.name}
+                                </div>
+                                {!file.isDirectory && (
+                                    <div className="file-card-meta">
+                                        {(file.size / 1024).toFixed(1)} КБ
+                                    </div>
+                                )}
+                                <div className="file-card-actions">
+                                    {!file.isDirectory && (
+                                        <button 
+                                            className="action-btn"
+                                            onClick={() => downloadFile(file)}
+                                            title="Скачать"
+                                        >
+                                            ⬇️
+                                        </button>
+                                    )}
+                                    <button 
+                                        className="action-btn delete"
+                                        onClick={() => deleteItem(file)}
+                                        title="Удалить"
+                                    >
+                                        🗑️
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+            
+            <div className="modal-footer">
+                <small className="folder-path" title={folderManager.currentPath}>
+                    {folderManager.currentPath?.substring(0, 80)}{folderManager.currentPath?.length > 80 ? '...' : ''}
+                </small>
+                <button className="btn-ok" onClick={() => setFolderManager(prev => ({ ...prev, visible: false }))}>
+                    Готово
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
                                 <div className="form-row">
                                     <label className="field-label"></label>
                                     <div className="input-with-button">

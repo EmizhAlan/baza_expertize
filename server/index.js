@@ -511,8 +511,7 @@ app.post('/api/delete-case', async (req, res) => {
 // 📁 МАРШРУТ: Открытие/создание сетевой папки
 // ==========================================
 const { exec } = require('child_process');
-const fs = require('fs').promises;
-const path = require('path');
+
 
 app.post('/api/open-folder', async (req, res) => {
     try {
@@ -580,6 +579,285 @@ app.post('/api/open-folder', async (req, res) => {
             error: err.message,
             details: err.stack 
         });
+    }
+});
+
+const fs = require('fs').promises;
+const path = require('path');
+
+// ==========================================
+// 📁 МАРШРУТ: Список файлов в папке
+// ==========================================
+app.post('/api/list-folder', async (req, res) => {
+    try {
+        const { court, folderName } = req.body;
+        console.log(`📁 Запрос списка: суд="${court}", папка="${folderName}"`);
+        
+        const baseNetworkPath = '\\\\192.168.43.92\\g\\экспертизы';
+        const safeCourt = (court || 'Без_суда').trim().replace(/[<>:"|?*]/g, '_');
+        const safeFolder = (folderName || 'Новая_папка').trim().replace(/[<>:"|?*]/g, '_');
+        
+        const targetPath = path.join(baseNetworkPath, safeCourt, safeFolder);
+        
+        // Создаём папку если нет
+        try {
+            await fs.access(targetPath);
+        } catch {
+            await fs.mkdir(path.join(targetPath, 'sud'), { recursive: true });
+            await fs.mkdir(path.join(targetPath, 'дело'), { recursive: true });
+            await fs.mkdir(path.join(targetPath, 'фото'), { recursive: true });
+        }
+        
+        // Читаем содержимое
+        const entries = await fs.readdir(targetPath, { withFileTypes: true });
+        const fileList = [];
+        
+        for (const entry of entries) {
+            const entryPath = path.join(targetPath, entry.name);
+            try {
+                const stats = await fs.stat(entryPath);
+                fileList.push({
+                    name: entry.name,
+                    isDirectory: entry.isDirectory(),
+                    size: stats.size,
+                    modified: stats.mtime.toISOString(),
+                    path: entryPath
+                });
+            } catch (err) {
+                console.warn(`⚠️ Пропущен ${entry.name}: ${err.message}`);
+            }
+        }
+        
+        // Сортировка: папки сначала, потом файлы
+        fileList.sort((a, b) => {
+            if (a.isDirectory && !b.isDirectory) return -1;
+            if (!a.isDirectory && b.isDirectory) return 1;
+            return a.name.localeCompare(b.name, 'ru');
+        });
+        
+        res.json({ success: true, folderPath: targetPath, files: fileList });
+        
+    } catch (err) {
+        console.error('❌ Ошибка list-folder:', err.message);
+        res.status(500).json({ 
+            success: false, 
+            error: err.message,
+            details: err.code === 'EACCES' ? 'Нет доступа к сетевой папке' : ''
+        });
+    }
+});
+
+// ==========================================
+// 📄 МАРШРУТ: Открытие файла
+// ==========================================
+app.post('/api/open-file', async (req, res) => {
+    try {
+        const { filePath } = req.body;
+        const baseNetworkPath = '\\\\192.168.43.92\\g\\экспертизы';
+        
+        // Проверка безопасности
+        if (!filePath.startsWith(baseNetworkPath)) {
+            return res.status(403).json({ success: false, error: 'Доступ запрещён' });
+        }
+        
+        // Возвращаем UNC-путь для открытия на клиенте
+        res.json({
+            success: true,
+            uncPath: filePath,
+            fileUrl: `file:${filePath.replace(/\\/g, '/')}`
+        });
+        
+    } catch (err) {
+        console.error('❌ Ошибка open-file:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+const multer = require('multer');
+const upload = multer({ dest: 'temp/' }); // Временная папка для загрузки
+
+// ==========================================
+// 📁 МАРШРУТ: Навигация по папкам
+// ==========================================
+app.post('/api/navigate-folder', async (req, res) => {
+    try {
+        const { court, folderName, subPath = '' } = req.body;
+        const baseNetworkPath = '\\\\192.168.43.92\\g\\экспертизы';
+        const safeCourt = (court || '').trim().replace(/[<>:"|?*]/g, '_');
+        const safeFolder = (folderName || '').trim().replace(/[<>:"|?*]/g, '_');
+        
+        const targetPath = subPath 
+            ? path.join(baseNetworkPath, safeCourt, safeFolder, subPath)
+            : path.join(baseNetworkPath, safeCourt, safeFolder);
+        
+        // Создаём если нет
+        await fs.mkdir(targetPath, { recursive: true });
+        await fs.mkdir(path.join(targetPath, 'sud'), { recursive: true });
+        await fs.mkdir(path.join(targetPath, 'дело'), { recursive: true });
+        await fs.mkdir(path.join(targetPath, 'фото'), { recursive: true });
+        
+        const entries = await fs.readdir(targetPath, { withFileTypes: true });
+        const fileList = [];
+        
+        for (const entry of entries) {
+            const entryPath = path.join(targetPath, entry.name);
+            try {
+                const stats = await fs.stat(entryPath);
+                fileList.push({
+                    name: entry.name,
+                    isDirectory: entry.isDirectory(),
+                    size: stats.size,
+                    modified: stats.mtime.toISOString(),
+                    fullPath: entryPath,
+                    relativePath: subPath ? path.join(subPath, entry.name) : entry.name
+                });
+            } catch (err) {
+                console.warn(`⚠️ Пропущен ${entry.name}`);
+            }
+        }
+        
+        fileList.sort((a, b) => {
+            if (a.isDirectory && !b.isDirectory) return -1;
+            if (!a.isDirectory && b.isDirectory) return 1;
+            return a.name.localeCompare(b.name, 'ru');
+        });
+        
+        res.json({ 
+            success: true, 
+            currentPath: targetPath,
+            relativePath: subPath,
+            files: fileList,
+            breadcrumbs: subPath ? subPath.split(path.sep).filter(Boolean) : []
+        });
+        
+    } catch (err) {
+        console.error('❌ Ошибка навигации:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ==========================================
+// ⬆️ МАРШРУТ: Загрузка файла
+// ==========================================
+app.post('/api/upload-file', upload.single('file'), async (req, res) => {
+    try {
+        const { court, folderName, subPath } = req.body;
+        const baseNetworkPath = '\\\\192.168.43.92\\g\\экспертизы';
+        const safeCourt = (court || '').trim().replace(/[<>:"|?*]/g, '_');
+        const safeFolder = (folderName || '').trim().replace(/[<>:"|?*]/g, '_');
+        
+        const targetDir = subPath 
+            ? path.join(baseNetworkPath, safeCourt, safeFolder, subPath)
+            : path.join(baseNetworkPath, safeCourt, safeFolder);
+        
+        const tempFilePath = req.file.path;
+        const fileName = req.file.originalname;
+        const targetFilePath = path.join(targetDir, fileName);
+        
+        await fs.mkdir(targetDir, { recursive: true });
+        await fs.rename(tempFilePath, targetFilePath);
+        
+        res.json({ success: true, message: 'Файл загружен', fileName });
+        
+    } catch (err) {
+        console.error('❌ Ошибка загрузки:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ==========================================
+// ⬇️ МАРШРУТ: Скачивание файла
+// ==========================================
+app.get('/api/download-file', async (req, res) => {
+    try {
+        const { filePath } = req.query;
+        
+        if (!filePath || !filePath.includes('192.168.43.92')) {
+            return res.status(403).json({ error: 'Неверный путь' });
+        }
+        
+        const fileName = path.basename(filePath);
+        res.download(filePath, fileName);
+        
+    } catch (err) {
+        console.error('❌ Ошибка скачивания:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ==========================================
+// 🗑️ МАРШРУТ: Удаление файла/папки
+// ==========================================
+app.post('/api/delete-item', async (req, res) => {
+    try {
+        const { filePath, isDirectory } = req.body;
+        
+        if (isDirectory) {
+            await fs.rmdir(filePath, { recursive: true });
+        } else {
+            await fs.unlink(filePath);
+        }
+        
+        res.json({ success: true, message: 'Удалено' });
+        
+    } catch (err) {
+        console.error('❌ Ошибка удаления:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ==========================================
+// 📁 МАРШРУТ: Создание папки
+// ==========================================
+app.post('/api/create-folder', async (req, res) => {
+    try {
+        const { folderPath, newFolderName } = req.body;
+        const newFolderPath = path.join(folderPath, newFolderName);
+        
+        await fs.mkdir(newFolderPath, { recursive: true });
+        
+        res.json({ success: true, message: 'Папка создана' });
+        
+    } catch (err) {
+        console.error('❌ Ошибка создания папки:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ==========================================
+// 📡 МАРШРУТ: Сканирование (интеграция)
+// ==========================================
+app.post('/api/scan-document', async (req, res) => {
+    try {
+        const { court, folderName, subPath, scanSettings } = req.body;
+        
+        // Для сканирования нужно Windows-приложение
+        // Этот endpoint ожидает, что сканер уже отсканировал файл
+        // и сохранил его во временную папку
+        
+        const baseNetworkPath = '\\\\192.168.43.92\\g\\экспертизы';
+        const safeCourt = (court || '').trim().replace(/[<>:"|?*]/g, '_');
+        const safeFolder = (folderName || '').trim().replace(/[<>:"|?*]/g, '_');
+        
+        const targetDir = subPath 
+            ? path.join(baseNetworkPath, safeCourt, safeFolder, subPath)
+            : path.join(baseNetworkPath, safeCourt, safeFolder);
+        
+        const tempScanPath = path.join(targetDir, `scan_${Date.now()}.pdf`);
+        
+        // Здесь должна быть логика вызова сканера
+        // Например, через WIA/TWAIN библиотеку для Node.js
+        // Или ожидание файла от отдельного сканирующего приложения
+        
+        res.json({ 
+            success: true, 
+            message: 'Сканирование завершено',
+            filePath: tempScanPath
+        });
+        
+    } catch (err) {
+        console.error('❌ Ошибка сканирования:', err.message);
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 

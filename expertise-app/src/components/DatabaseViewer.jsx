@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import CreateCaseDialog from './CreateCaseDialog';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 import './styles/DatabaseViewer.css';
 
 const DatabaseViewer = () => {
@@ -27,6 +29,52 @@ const DatabaseViewer = () => {
         selectedCase: null
     });
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+    // 👇 ФИЛЬТРЫ ДЛЯ ОТЧЕТА
+    const [reportFilters, setReportFilters] = useState({
+        номер: '',
+        датаВхПисьма: '',
+        номерВхПисьма: '',
+        номерДела: '',
+        наименованиеСуда: '',
+        срокВыполнения: '',
+        исполнитель: '',
+        цельЭкспертизы: ''
+    });
+    
+    // 👇 МОДАЛЬНОЕ ОКНО ПРОСМОТРА ДЕЛА
+    const [viewCaseModal, setViewCaseModal] = useState({
+        visible: false,
+        caseData: null
+    });
+
+    // Состояние видимости фильтра
+    const [showFilters, setShowFilters] = useState(false);
+    
+    // Вычисляем уникальные значения для фильтров
+    const uniqueValues = React.useMemo(() => {
+        const courts = new Set();
+        const executors = new Set();
+        const goals = new Set();
+        
+        allCases.forEach(caseItem => {
+            if (caseItem.судебный_орган || caseItem.sudebnyj_organ) {
+                courts.add(caseItem.судебный_орган || caseItem.sudebnyj_organ);
+            }
+            if (caseItem.исполнитель || caseItem.ispolnitel) {
+                executors.add(caseItem.исполнитель || caseItem.ispolnitel);
+            }
+            if (caseItem.вид || caseItem.vid) {
+                goals.add(caseItem.вид || caseItem.vid);
+            }
+        });
+        
+        return {
+            courts: Array.from(courts).sort(),
+            executors: Array.from(executors).sort(),
+            goals: Array.from(goals).sort()
+        };
+    }, [allCases]);
 
     useEffect(() => {
         const savedConnection = localStorage.getItem('dbConnection');
@@ -310,50 +358,7 @@ const DatabaseViewer = () => {
         }
     };
 
-    if (!connection) {
-        return <div>Загрузка...</div>;
-    }
-
-
-    const exportToExcel = () => {
-        const excelData = allCases.map((item, index) => {
-            // Логика та же, что в calculateDeadline
-            let endDateValue = (item.prodlen_otmetka === '1' || item.prodlen_otmetka === 1) 
-                ? item.prodlen_1 
-                : item.дата_окончания;
-            const deadlineText = endDateValue ? `срок до ${formatDate(endDateValue)}` : '-';
-            
-            return {
-                "№": index + 1,
-                "Дата входного письма": item.дата_поступления || '',
-                "Номер входного письма": item.входящий_номер || '',
-                "Номер дела": item.номер_дела || '',
-                "Наименование суда": item.судебныйОрган || item.sudebnyj_organ || '',
-                "Срок выполнения": deadlineText,
-                "Исполнитель": item.исполнитель || '',
-                "Цель экспертизы": item.вид || ''
-            };
-        });
-    
-        const ws = XLSX.utils.json_to_sheet(excelData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Отчет");
-    
-        ws['!cols'] = [
-            { wch: 5 },   // №
-            { wch: 20 },  // Дата входного письма
-            { wch: 20 },  // Номер входного письма
-            { wch: 15 },  // Номер дела
-            { wch: 35 },  // Наименование суда
-            { wch: 25 },  // Срок выполнения
-            { wch: 15 },  // Исполнитель
-            { wch: 25 }   // Цель экспертизы
-        ];
-    
-        const today = new Date().toLocaleDateString('ru-RU').replace(/\./g, '-');
-        XLSX.writeFile(wb, `Отчет_экспертиз_${today}.xlsx`);
-    };
-
+    // ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (объявляем ДО filteredCases) =====
     // Расчёт срока выполнения в днях
     // Форматирует дату окончания как "срок до 15 мая 2026 г."
     const calculateDeadline = (item) => {
@@ -371,6 +376,237 @@ const DatabaseViewer = () => {
         if (formatted === '-' || formatted.includes('Invalid')) return '-';
     
         return `срок до ${formatted}`;
+    };
+
+    // Функция для нестрогого поиска
+    const matchesFilter = (value, filter) => {
+        if (!filter) return true;
+        if (!value) return false;
+        return String(value).toLowerCase().includes(filter.toLowerCase());
+    };
+    
+    // Обновление фильтра
+    const handleFilterChange = (field, value) => {
+        setReportFilters(prev => ({ ...prev, [field]: value }));
+    };
+    
+    // Сброс всех фильтров
+    const clearAllFilters = () => {
+        setReportFilters({
+            номер: '',
+            датаВхПисьма: '',
+            номерВхПисьма: '',
+            номерДела: '',
+            наименованиеСуда: '',
+            срокВыполнения: '',
+            исполнитель: '',
+            цельЭкспертизы: ''
+        });
+    };
+    
+    // Открытие модального окна с деталями дела
+    const openCaseDetails = (caseItem) => {
+        setViewCaseModal({ visible: true, caseData: caseItem });
+    };
+    
+    // Закрытие модального окна
+    const closeCaseDetails = () => {
+        setViewCaseModal({ visible: false, caseData: null });
+    };
+
+    // ===== Форматирование даты как ДД.ММ.ГГГГ =====
+    const formatShortDate = (dateString) => {
+        if (!dateString) return '';
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return '';
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}.${month}.${year}`;
+        } catch {
+            return dateString;
+        }
+    };
+    
+    // ===== Расчёт срока в понятном формате =====
+    const calculateDeadlineText = (item) => {
+        // Определяем дату окончания (продленная или обычная)
+        const isExtended = item.prodlen_otmetka === '1' || item.prodlen_otmetka === 1;
+        const endDateStr = isExtended ? (item.prodlen_1 || item.дата_окончания) : item.дата_окончания;
+        const startDateStr = item.дата_начала;
+        
+        if (!startDateStr || !endDateStr) return '-';
+        
+        const startDate = new Date(startDateStr);
+        const endDate = new Date(endDateStr);
+        
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return '-';
+        
+        // Разница в днях
+        const diffTime = endDate.getTime() - startDate.getTime();
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+        
+        // Логика отображения
+        if (diffDays < 30) {
+            return 'в течении месяца';
+        } else if (diffDays === 30) {
+            return '30 дней';
+        } else {
+            // Больше 30 дней — считаем полные месяцы (30 дней = 1 месяц)
+            const months = Math.floor(diffDays / 30);
+            return `${months} ${getMonthWord(months)}`;
+        }
+    };
+    
+    // Склонение слова "месяц" (1 месяц, 2 месяца, 5 месяцев)
+    const getMonthWord = (n) => {
+        const cases = [2, 0, 1, 1, 1, 2];
+        return ['месяцев', 'месяц', 'месяца'][cases[(n % 100 > 4 && n % 100 < 20) ? 2 : Math.min(n % 10, 5)]];
+    };
+
+    // ===== ФИЛЬТРАЦИЯ ДАННЫХ ОТЧЕТА =====
+    const filteredCases = allCases.filter(caseItem => {
+        const f = reportFilters;
+        
+        return (
+            matchesFilter(caseItem.номер_дела || caseItem.nomer_dela, f.номерДела) &&
+            matchesFilter(formatDate(caseItem.дата_начала || caseItem.data_nachala), f.датаВхПисьма) &&
+            matchesFilter(caseItem.входящий_номер || caseItem.vh_nomer, f.номерВхПисьма) &&
+            matchesFilter(caseItem.судебный_орган || caseItem.sudebnyj_organ, f.наименованиеСуда) &&
+            matchesFilter(calculateDeadline(caseItem), f.срокВыполнения) &&
+            matchesFilter(caseItem.исполнитель || caseItem.ispolnitel, f.исполнитель) &&
+            matchesFilter(caseItem.вид || caseItem.vid, f.цельЭкспертизы)
+        );
+    });
+    
+    if (!connection) {
+        return <div>Загрузка...</div>;
+    }
+
+
+    const exportToExcel = async () => {
+        try {
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Отчет');
+    
+            worksheet.columns = [
+                { header: '№', key: 'num', width: 5 },
+                { header: 'Дата вх письма', key: 'date', width: 20 },
+                { header: 'Номер вх письма', key: 'vhNum', width: 20 },
+                { header: 'Номер дела', key: 'caseNum', width: 15 },
+                { header: 'Наименование суда', key: 'court', width: 35 },
+                { header: 'Срок выполнения', key: 'deadline', width: 28 },
+                { header: 'Исполнитель', key: 'executor', width: 15 },
+                { header: 'Вид экспертизы', key: 'goal', width: 25 }
+            ];
+    
+            // Стиль заголовка
+            const headerRow = worksheet.getRow(1);
+            headerRow.font = { bold: true, size: 12, name: 'Calibri', color: { argb: 'FF000000' } };
+            headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+            headerRow.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            headerRow.height = 22;
+            
+            headerRow.eachCell((cell) => {
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'FF000000' } },
+                    left: { style: 'thin', color: { argb: 'FF000000' } },
+                    bottom: { style: 'thin', color: { argb: 'FF000000' } },
+                    right: { style: 'thin', color: { argb: 'FF000000' } }
+                };
+            });
+    
+            // Форматирование даты (используем твою существующую функцию formatDate)
+            const formatShortDate = (dateString) => {
+                if (!dateString) return '';
+                try {
+                    // Если дата уже в русском формате
+                    if (typeof dateString === 'string' && (dateString.includes('г.') || /[а-яё]/i.test(dateString))) {
+                        return dateString;
+                    }
+                    const date = new Date(dateString);
+                    if (isNaN(date.getTime())) return '';
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const year = date.getFullYear();
+                    return `${day}.${month}.${year}`;
+                } catch {
+                    return '';
+                }
+            };
+    
+            // Заполнение данных
+            filteredCases.forEach((item, index) => {
+                // 👇 Дата вх письма — пробуем все возможные варианты
+                const dateValue = 
+                    item.дата_поступления || 
+                    item.дата_начала || 
+                    item.data_nachala ||
+                    item.date ||
+                    item.createdAt ||
+                    '';
+                
+                const formattedDate = formatShortDate(dateValue);
+                
+                // 👇 Срок выполнения — проверяем продление
+                const isExtended = item.prodlen_otmetka === '1' || item.prodlen_otmetka === 1;
+                
+                let deadlineDate = '';
+                if (isExtended) {
+                    // Если продлено — берём дату продления
+                    deadlineDate = 
+                        item.prodlen_1 || 
+                        item.продлено_до ||
+                        item.дата_окончания ||
+                        item.data_okonchaniya ||
+                        '';
+                } else {
+                    // Если не продлено — обычная дата окончания
+                    deadlineDate = 
+                        item.дата_окончания || 
+                        item.data_okonchaniya ||
+                        '';
+                }
+                
+                const deadlineText = deadlineDate ? `срок до ${formatShortDate(deadlineDate)}` : '-';
+                
+                const row = worksheet.addRow({
+                    num: index + 1,
+                    date: formattedDate,
+                    vhNum: item.входящий_номер || item.vh_nomer || '',
+                    caseNum: item.номер_дела || item.nomer_dela || '',
+                    court: item.судебный_орган || item.sudebnyj_organ || item.судебныйОрган || '',
+                    deadline: deadlineText,
+                    executor: item.исполнитель || item.ispolnitel || '',
+                    goal: item.вид || item.vid || ''
+                });
+    
+                // Стиль для строк
+                row.eachCell((cell) => {
+                    cell.font = { size: 11, name: 'Calibri', color: { argb: 'FF000000' } };
+                    cell.alignment = { vertical: 'middle', wrapText: true, horizontal: 'left' };
+                    cell.border = {
+                        top: { style: 'thin', color: { argb: 'FF000000' } },
+                        left: { style: 'thin', color: { argb: 'FF000000' } },
+                        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+                        right: { style: 'thin', color: { argb: 'FF000000' } }
+                    };
+                });
+            });
+    
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { 
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+            });
+            
+            const today = new Date().toLocaleDateString('ru-RU').replace(/\./g, '-');
+            saveAs(blob, `Отчет_экспертиз_${today}.xlsx`);
+            
+        } catch (err) {
+            console.error('❌ Ошибка экспорта:', err);
+            alert('Не удалось экспортировать: ' + err.message);
+        }
     };
 
     return (
@@ -606,58 +842,425 @@ const DatabaseViewer = () => {
             {activeTab === 'edit' && <div className="tab-content"><h3>Правка</h3><p>Функция в разработке</p></div>}
             {activeTab === 'payment' && <div className="tab-content"><h3>Оплата</h3><p>Функция в разработке</p></div>}
             {activeTab === 'report' && (
-                <div className="report-container">
-                    <div className="report-header">
-                        <h3>📊 Отчет по экспертизам</h3>
-                        <button className="btn-export-excel" onClick={exportToExcel}>
-                            📥 Экспорт в Excel
-                        </button>
-                    </div>
-            
-                    {loading && <div className="loading">Загрузка данных отчета...</div>}
-            
-                    {!loading && allCases.length === 0 && (
-                        <p className="no-cases">Нет данных для формирования отчета</p>
-                    )}
-            
-                    {!loading && allCases.length > 0 && (
-                        <div className="cases-table-wrapper">
-                            <div className="table-info">
-                                Найдено: <strong>{allCases.length}</strong> записей
+                        <div className="report-container">
+                            <div className="report-header">
+                                <h3>📊 Отчет по экспертизам</h3>
+                                <div className="report-actions">
+                                    <button className="btn-export-excel" onClick={exportToExcel}>
+                                        📥 Экспорт в Excel
+                                    </button>
+                    
+                                </div>
                             </div>
-                            <table className="cases-table report-table">
-                                <thead>
-                                    <tr>
-                                        <th style={{ width: '50px', textAlign: 'center' }}>№</th>
-                                        <th>Дата вх письма</th>
-                                        <th>Номер вх письма</th>
-                                        <th>Номер дела</th>
-                                        <th>Наименование суда, назначившего экспертизу</th>
-                                        <th>Срок выполнения, согласно определению суда</th>
-                                        <th>Исполнитель</th>
-                                        <th>Цель экспертизы</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {allCases.map((item, index) => (
-                                        <tr key={index}>
-                                            <td style={{ textAlign: 'center', fontWeight: '500', width: '40px' }}>{index + 1}</td>
-                                            <td>{formatDate(item.дата_поступления)}</td>
-                                            <td>{item.входящий_номер || '-'}</td>
-                                            <td>{item.номер_дела || '-'}</td>
-                                            <td>{item.судебныйОрган || item.sudebnyj_organ || '-'}</td>
-                                            <td>{calculateDeadline(item)}</td>
-                                            <td>{item.исполнитель || '-'}</td>
-                                            <td>{item.вид || '-'}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                    
+                            {/* 👇 ПАНЕЛЬ ФИЛЬТРОВ (компактная, вертикальная) */}
+                            <div className="filters-section">
+                                <button 
+                                    className="btn-toggle-filters" 
+                                    onClick={() => setShowFilters(!showFilters)}
+                                >
+                                    {showFilters ? '🔼 Скрыть фильтры' : '🔽 Фильтры'}
+                                </button>
+                                
+                                {showFilters && (
+                                    <div className="filters-panel vertical">
+                                        <div className="filter-group">
+                                            <input 
+                                                type="text" 
+                                                className="filter-input" 
+                                                placeholder="№" 
+                                                value={reportFilters.номер} 
+                                                onChange={(e) => handleFilterChange('номер', e.target.value)} 
+                                            />
+                                        </div>
+                                        <div className="filter-group">
+                                            <input 
+                                                type="text" 
+                                                className="filter-input" 
+                                                placeholder="Дата вх письма" 
+                                                value={reportFilters.датаВхПисьма} 
+                                                onChange={(e) => handleFilterChange('датаВхПисьма', e.target.value)} 
+                                            />
+                                        </div>
+                                        <div className="filter-group">
+                                            <input 
+                                                type="text" 
+                                                className="filter-input" 
+                                                placeholder="Номер вх письма" 
+                                                value={reportFilters.номерВхПисьма} 
+                                                onChange={(e) => handleFilterChange('номерВхПисьма', e.target.value)} 
+                                            />
+                                        </div>
+                                        <div className="filter-group">
+                                            <input 
+                                                type="text" 
+                                                className="filter-input" 
+                                                placeholder="Номер дела" 
+                                                value={reportFilters.номерДела} 
+                                                onChange={(e) => handleFilterChange('номерДела', e.target.value)} 
+                                            />
+                                        </div>
+                                        <div className="filter-group">
+                                            <input 
+                                                type="text" 
+                                                className="filter-input" 
+                                                placeholder="Наименование суда" 
+                                                list="courts-list"
+                                                value={reportFilters.наименованиеСуда} 
+                                                onChange={(e) => handleFilterChange('наименованиеСуда', e.target.value)} 
+                                            />
+                                            <datalist id="courts-list">
+                                                {uniqueValues.courts.map((court, idx) => (
+                                                    <option key={idx} value={court} />
+                                                ))}
+                                            </datalist>
+                                        </div>
+                                        <div className="filter-group">
+                                            <input 
+                                                type="text" 
+                                                className="filter-input" 
+                                                placeholder="Срок выполнения" 
+                                                value={reportFilters.срокВыполнения} 
+                                                onChange={(e) => handleFilterChange('срокВыполнения', e.target.value)} 
+                                            />
+                                        </div>
+                                        <div className="filter-group">
+                                            <input 
+                                                type="text" 
+                                                className="filter-input" 
+                                                placeholder="Исполнитель" 
+                                                list="executors-list"
+                                                value={reportFilters.исполнитель} 
+                                                onChange={(e) => handleFilterChange('исполнитель', e.target.value)} 
+                                            />
+                                            <datalist id="executors-list">
+                                                {uniqueValues.executors.map((exec, idx) => (
+                                                    <option key={idx} value={exec} />
+                                                ))}
+                                            </datalist>
+                                        </div>
+                                        <div className="filter-group">
+                                            <input 
+                                                type="text" 
+                                                className="filter-input" 
+                                                placeholder="Вид экспертизы" 
+                                                list="goals-list"
+                                                value={reportFilters.цельЭкспертизы} 
+                                                onChange={(e) => handleFilterChange('цельЭкспертизы', e.target.value)} 
+                                            />
+                                            <datalist id="goals-list">
+                                                {uniqueValues.goals.map((goal, idx) => (
+                                                    <option key={idx} value={goal} />
+                                                ))}
+                                            </datalist>
+                                        </div>
+                                        <div className="filter-actions">
+                                            <button className="btn-clear-filters" onClick={clearAllFilters}>
+                                                🗑️ Сбросить
+                                            </button>
+                                            <span className="filter-count">
+                                                Найдено: <strong>{filteredCases.length}</strong> из <strong>{allCases.length}</strong>
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                    
+                            {loading && <div className="loading">Загрузка данных отчета...</div>}
+                    
+                            {!loading && filteredCases.length === 0 && (
+                                <p className="no-cases">Нет данных{Object.values(reportFilters).some(f => f) ? ' по заданным фильтрам' : ''} для формирования отчета</p>
+                            )}
+                    
+                            {!loading && filteredCases.length > 0 && (
+                                <div className="cases-table-wrapper">
+                                    <div className="table-info">Показано: <strong>{filteredCases.length}</strong> из <strong>{allCases.length}</strong> записей</div>
+                                    <table className="cases-table report-table">
+                                        <thead>
+                                            <tr>
+                                                <th style={{width:'50px',textAlign:'center'}}>№</th>
+                                                <th>Дата вх письма</th>
+                                                <th>Номер вх письма</th>
+                                                <th>Номер дела</th>
+                                                <th>Наименование суда</th>
+                                                <th>Срок выполнения</th>
+                                                <th>Исполнитель</th>
+                                                <th>Вид экспертизы</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredCases.map((caseItem, index) => (
+                                                <tr 
+                                                    key={index}
+                                                    onDoubleClick={() => openCaseDetails(caseItem)}
+                                                    style={{ cursor: 'pointer' }}
+                                                    title="Дважды кликните для просмотра деталей"
+                                                >
+                                                    <td>{index + 1}</td>
+                                                    <td>{formatDate(caseItem.дата_начала || caseItem.data_nachala)}</td>
+                                                    <td>{caseItem.входящий_номер || caseItem.vh_nomer || '-'}</td>
+                                                    <td>{caseItem.номер_дела || caseItem.nomer_dela || '-'}</td>
+                                                    <td>{caseItem.судебный_орган || caseItem.sudebnyj_organ || '-'}</td>
+                                                    <td>{calculateDeadline(caseItem)}</td>
+                                                    <td>{caseItem.исполнитель || caseItem.ispolnitel || '-'}</td>
+                                                    <td>{caseItem.вид || caseItem.vid || '-'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                    
+                            {/* 👇 МОДАЛЬНОЕ ОКНО ПРОСМОТРА ДЕЛА */}
+                            {viewCaseModal.visible && viewCaseModal.caseData && (
+                                <div className="modal-overlay" onClick={closeCaseDetails}>
+                                    <div className="modal-window" onClick={(e) => e.stopPropagation()}>
+                                        <div className="modal-header">
+                                            <h4>📋 Детали дела № {viewCaseModal.caseData.номер_дела || 'N/A'}</h4>
+                                            <button className="modal-close" onClick={closeCaseDetails}>×</button>
+                                        </div>
+                                        <div className="modal-body">
+                                            <div className="case-details-grid">
+                                                <div className="detail-row"><label>Дата поступления:</label><span>{formatDate(viewCaseModal.caseData.дата_поступления)}</span></div>
+                                                <div className="detail-row"><label>Дата начала:</label><span>{formatDate(viewCaseModal.caseData.дата_начала || viewCaseModal.caseData.data_nachala)}</span></div>
+                                                <div className="detail-row"><label>Дата окончания:</label><span>{formatDate(viewCaseModal.caseData.дата_окончания || viewCaseModal.caseData.data_okonchaniya)}</span></div>
+                                                <div className="detail-row"><label>Продлено до:</label><span>{formatDate(viewCaseModal.caseData.продлено_до || viewCaseModal.caseData.prodlen_1) || '—'}</span></div>
+                                                <div className="detail-row"><label>Входящий номер:</label><span>{viewCaseModal.caseData.входящий_номер || viewCaseModal.caseData.vh_nomer || '—'}</span></div>
+                                                <div className="detail-row"><label>Номер дела:</label><span>{viewCaseModal.caseData.номер_дела || viewCaseModal.caseData.nomer_dela || '—'}</span></div>
+                                                <div className="detail-row"><label>Судебный орган:</label><span>{viewCaseModal.caseData.судебный_орган || viewCaseModal.caseData.sudebnyj_organ || '—'}</span></div>
+                                                <div className="detail-row"><label>Судья:</label><span>{viewCaseModal.caseData.судья || '—'}</span></div>
+                                                <div className="detail-row"><label>Вид экспертизы:</label><span>{viewCaseModal.caseData.вид || viewCaseModal.caseData.vid || '—'}</span></div>
+                                                <div className="detail-row"><label>Адрес:</label><span>{viewCaseModal.caseData.адрес || '—'}</span></div>
+                                                <div className="detail-row"><label>Исполнитель:</label><span>{viewCaseModal.caseData.исполнитель || viewCaseModal.caseData.ispolnitel || '—'}</span></div>
+                                                <div className="detail-row"><label>Статус:</label><span>{(viewCaseModal.caseData.выполнено === '1' || viewCaseModal.caseData.выполнено === 1) ? '✅ Выполнено' : '⏳ В работе'}</span></div>
+                                                <div className="detail-row full-width"><label>Иск / Требования:</label><span className="detail-text">{viewCaseModal.caseData.иск || '—'}</span></div>
+                                                <div className="detail-row full-width"><label>Дополнение:</label><span className="detail-text">{viewCaseModal.caseData.дополнение || viewCaseModal.caseData.komentarii || '—'}</span></div>
+                                            </div>
+                                        </div>
+                                        <div className="modal-footer">
+                                            <button className="btn-ok" onClick={() => { setIsEditDialogOpen(true); setContextMenu({ visible: false, selectedCase: viewCaseModal.caseData }); closeCaseDetails(); }}>✏️ Редактировать</button>
+                                            <button className="btn-cancel" onClick={closeCaseDetails}>Закрыть</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
-                </div>
-            )}
-            {activeTab === 'print' && <div className="tab-content"><h3>Печать</h3><p>Функция в разработке</p></div>}
+            {activeTab === 'print' && 
+            
+            (
+                        <div className="report-container">
+                            <div className="report-header">
+                                <h3>📊 Отчет по экспертизам</h3>
+                                <div className="report-actions">
+                                    <button className="btn-export-excel" onClick={exportToExcel}>
+                                        📥 Экспорт в Excel
+                                    </button>
+                    
+                                </div>
+                            </div>
+                    
+                            {/* 👇 ПАНЕЛЬ ФИЛЬТРОВ (компактная, вертикальная) */}
+                            <div className="filters-section">
+                                <button 
+                                    className="btn-toggle-filters" 
+                                    onClick={() => setShowFilters(!showFilters)}
+                                >
+                                    {showFilters ? '🔼 Скрыть фильтры' : '🔽 Фильтры'}
+                                </button>
+                                
+                                {showFilters && (
+                                    <div className="filters-panel vertical">
+                                        <div className="filter-group">
+                                            <input 
+                                                type="text" 
+                                                className="filter-input" 
+                                                placeholder="№" 
+                                                value={reportFilters.номер} 
+                                                onChange={(e) => handleFilterChange('номер', e.target.value)} 
+                                            />
+                                        </div>
+                                        <div className="filter-group">
+                                            <input 
+                                                type="text" 
+                                                className="filter-input" 
+                                                placeholder="Дата вх письма" 
+                                                value={reportFilters.датаВхПисьма} 
+                                                onChange={(e) => handleFilterChange('датаВхПисьма', e.target.value)} 
+                                            />
+                                        </div>
+                                        <div className="filter-group">
+                                            <input 
+                                                type="text" 
+                                                className="filter-input" 
+                                                placeholder="Номер вх письма" 
+                                                value={reportFilters.номерВхПисьма} 
+                                                onChange={(e) => handleFilterChange('номерВхПисьма', e.target.value)} 
+                                            />
+                                        </div>
+                                        <div className="filter-group">
+                                            <input 
+                                                type="text" 
+                                                className="filter-input" 
+                                                placeholder="Номер дела" 
+                                                value={reportFilters.номерДела} 
+                                                onChange={(e) => handleFilterChange('номерДела', e.target.value)} 
+                                            />
+                                        </div>
+                                        <div className="filter-group">
+                                            <input 
+                                                type="text" 
+                                                className="filter-input" 
+                                                placeholder="Наименование суда" 
+                                                list="courts-list"
+                                                value={reportFilters.наименованиеСуда} 
+                                                onChange={(e) => handleFilterChange('наименованиеСуда', e.target.value)} 
+                                            />
+                                            <datalist id="courts-list">
+                                                {uniqueValues.courts.map((court, idx) => (
+                                                    <option key={idx} value={court} />
+                                                ))}
+                                            </datalist>
+                                        </div>
+                                        <div className="filter-group">
+                                            <input 
+                                                type="text" 
+                                                className="filter-input" 
+                                                placeholder="Срок выполнения" 
+                                                value={reportFilters.срокВыполнения} 
+                                                onChange={(e) => handleFilterChange('срокВыполнения', e.target.value)} 
+                                            />
+                                        </div>
+                                        <div className="filter-group">
+                                            <input 
+                                                type="text" 
+                                                className="filter-input" 
+                                                placeholder="Исполнитель" 
+                                                list="executors-list"
+                                                value={reportFilters.исполнитель} 
+                                                onChange={(e) => handleFilterChange('исполнитель', e.target.value)} 
+                                            />
+                                            <datalist id="executors-list">
+                                                {uniqueValues.executors.map((exec, idx) => (
+                                                    <option key={idx} value={exec} />
+                                                ))}
+                                            </datalist>
+                                        </div>
+                                        <div className="filter-group">
+                                            <input 
+                                                type="text" 
+                                                className="filter-input" 
+                                                placeholder="Вид экспертизы" 
+                                                list="goals-list"
+                                                value={reportFilters.цельЭкспертизы} 
+                                                onChange={(e) => handleFilterChange('цельЭкспертизы', e.target.value)} 
+                                            />
+                                            <datalist id="goals-list">
+                                                {uniqueValues.goals.map((goal, idx) => (
+                                                    <option key={idx} value={goal} />
+                                                ))}
+                                            </datalist>
+                                        </div>
+                                        <div className="filter-actions">
+                                            <button className="btn-clear-filters" onClick={clearAllFilters}>
+                                                🗑️ Сбросить
+                                            </button>
+                                            <span className="filter-count">
+                                                Найдено: <strong>{filteredCases.length}</strong> из <strong>{allCases.length}</strong>
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                    
+                            {loading && <div className="loading">Загрузка данных отчета...</div>}
+                    
+                            {!loading && filteredCases.length === 0 && (
+                                <p className="no-cases">Нет данных{Object.values(reportFilters).some(f => f) ? ' по заданным фильтрам' : ''} для формирования отчета</p>
+                            )}
+                    
+                            {!loading && filteredCases.length > 0 && (
+                                <div className="cases-table-wrapper">
+                                    <div className="table-info">Показано: <strong>{filteredCases.length}</strong> из <strong>{allCases.length}</strong> записей</div>
+                                    <table className="cases-table report-table">
+                                        <thead>
+                                            <tr>
+                                                <th style={{width:'50px',textAlign:'center'}}>№</th>
+                                                <th>Дата вх письма</th>
+                                                <th>Номер вх письма</th>
+                                                <th>Номер дела</th>
+                                                <th>Наименование суда</th>
+                                                <th>Срок выполнения</th>
+                                                <th>Исполнитель</th>
+                                                <th>Статус</th>
+                                                <th>Вид экспертизы</th>
+                                                <th>Цель</th>
+                                                <th>Оплачено</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredCases.map((caseItem, index) => (
+                                                <tr 
+                                                    key={index}
+                                                    onDoubleClick={() => openCaseDetails(caseItem)}
+                                                    style={{ cursor: 'pointer' }}
+                                                    title="Дважды кликните для просмотра деталей"
+                                                >
+                                                    <td>{index + 1}</td>
+                                                    <td>{formatDate(caseItem.дата_начала || caseItem.data_nachala)}</td>
+                                                    <td>{caseItem.входящий_номер || caseItem.vh_nomer || '-'}</td>
+                                                    <td>{caseItem.номер_дела || caseItem.nomer_dela || '-'}</td>
+                                                    <td>{caseItem.судебный_орган || caseItem.sudebnyj_organ || '-'}</td>
+                                                    <td>{calculateDeadline(caseItem)}</td>
+                                                    <td>{caseItem.исполнитель || caseItem.ispolnitel || '-'}</td>
+                                                    <td>{'-'}</td>
+                                                    <td>{caseItem.вид || caseItem.vid || '-'}</td>
+                                                    <td>{'-'}</td>
+                                                    <td>{'-'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                    
+                            {/* 👇 МОДАЛЬНОЕ ОКНО ПРОСМОТРА ДЕЛА */}
+                            {viewCaseModal.visible && viewCaseModal.caseData && (
+                                <div className="modal-overlay" onClick={closeCaseDetails}>
+                                    <div className="modal-window" onClick={(e) => e.stopPropagation()}>
+                                        <div className="modal-header">
+                                            <h4>📋 Детали дела № {viewCaseModal.caseData.номер_дела || 'N/A'}</h4>
+                                            <button className="modal-close" onClick={closeCaseDetails}>×</button>
+                                        </div>
+                                        <div className="modal-body">
+                                            <div className="case-details-grid">
+                                                <div className="detail-row"><label>Дата поступления:</label><span>{formatDate(viewCaseModal.caseData.дата_поступления)}</span></div>
+                                                <div className="detail-row"><label>Дата начала:</label><span>{formatDate(viewCaseModal.caseData.дата_начала || viewCaseModal.caseData.data_nachala)}</span></div>
+                                                <div className="detail-row"><label>Дата окончания:</label><span>{formatDate(viewCaseModal.caseData.дата_окончания || viewCaseModal.caseData.data_okonchaniya)}</span></div>
+                                                <div className="detail-row"><label>Продлено до:</label><span>{formatDate(viewCaseModal.caseData.продлено_до || viewCaseModal.caseData.prodlen_1) || '—'}</span></div>
+                                                <div className="detail-row"><label>Входящий номер:</label><span>{viewCaseModal.caseData.входящий_номер || viewCaseModal.caseData.vh_nomer || '—'}</span></div>
+                                                <div className="detail-row"><label>Номер дела:</label><span>{viewCaseModal.caseData.номер_дела || viewCaseModal.caseData.nomer_dela || '—'}</span></div>
+                                                <div className="detail-row"><label>Судебный орган:</label><span>{viewCaseModal.caseData.судебный_орган || viewCaseModal.caseData.sudebnyj_organ || '—'}</span></div>
+                                                <div className="detail-row"><label>Судья:</label><span>{viewCaseModal.caseData.судья || '—'}</span></div>
+                                                <div className="detail-row"><label>Вид экспертизы:</label><span>{viewCaseModal.caseData.вид || viewCaseModal.caseData.vid || '—'}</span></div>
+                                                <div className="detail-row"><label>Адрес:</label><span>{viewCaseModal.caseData.адрес || '—'}</span></div>
+                                                <div className="detail-row"><label>Исполнитель:</label><span>{viewCaseModal.caseData.исполнитель || viewCaseModal.caseData.ispolnitel || '—'}</span></div>
+                                                <div className="detail-row"><label>Статус:</label><span>{(viewCaseModal.caseData.выполнено === '1' || viewCaseModal.caseData.выполнено === 1) ? '✅ Выполнено' : '⏳ В работе'}</span></div>
+                                                <div className="detail-row full-width"><label>Иск / Требования:</label><span className="detail-text">{viewCaseModal.caseData.иск || '—'}</span></div>
+                                                <div className="detail-row full-width"><label>Дополнение:</label><span className="detail-text">{viewCaseModal.caseData.дополнение || viewCaseModal.caseData.komentarii || '—'}</span></div>
+                                            </div>
+                                        </div>
+                                        <div className="modal-footer">
+                                            <button className="btn-ok" onClick={() => { setIsEditDialogOpen(true); setContextMenu({ visible: false, selectedCase: viewCaseModal.caseData }); closeCaseDetails(); }}>✏️ Редактировать</button>
+                                            <button className="btn-cancel" onClick={closeCaseDetails}>Закрыть</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )
+            
+            }
         </div>
     );
 };

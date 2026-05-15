@@ -322,6 +322,112 @@
   font-size: 14px;
 }
 
+/* ===== КОМПАКТНЫЕ ВЕРТИКАЛЬНЫЕ ФИЛЬТРЫ ===== */
+.filters-section {
+    margin-bottom: 10px;
+    position: relative;
+    z-index: 100;
+}
+
+.btn-toggle-filters {
+    padding: 6px 16px;
+    background: #0078d4;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+.btn-toggle-filters:hover {
+    background: #005a9e;
+}
+
+.filters-panel.vertical {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 12px;
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: auto;
+    width: 320px; /* Узкая панель */
+    max-width: 90vw;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 200;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.filter-input {
+    width: 100%;
+    padding: 5px 8px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 12px;
+    box-sizing: border-box;
+}
+
+.filter-input:focus {
+    outline: none;
+    border-color: #0078d4;
+    box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.15);
+}
+
+.filter-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 8px;
+    margin-top: 4px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.btn-clear-filters {
+    padding: 5px 12px;
+    background: #e8e8e8;
+    border: 1px solid #a0a0a0;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.btn-clear-filters:hover {
+    background: #d8d8d8;
+}
+
+.filter-count {
+    font-size: 11px;
+    color: #666;
+}
+
+.filter-count strong {
+    color: #0078d4;
+}
+
+/* datalist стилизация (ограниченная поддержка браузеров) */
+datalist {
+    font-size: 12px;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .filters-panel.vertical {
+        width: 280px;
+    }
+}
+
 /* Курсор для строк таблицы */
 .cases-table tbody tr {
     cursor: context-menu;
