@@ -39,7 +39,11 @@ const DatabaseViewer = () => {
         наименованиеСуда: '',
         срокВыполнения: '',
         исполнитель: '',
-        цельЭкспертизы: ''
+        цельЭкспертизы: '',
+
+        статус: '',
+        цель: '',
+        оплачено: ''
     });
     
     // 👇 МОДАЛЬНОЕ ОКНО ПРОСМОТРА ДЕЛА
@@ -400,7 +404,10 @@ const DatabaseViewer = () => {
             наименованиеСуда: '',
             срокВыполнения: '',
             исполнитель: '',
-            цельЭкспертизы: ''
+            цельЭкспертизы: '',
+            статус: '',
+            цель: '',
+            оплачено: ''
         });
     };
     
@@ -476,7 +483,11 @@ const DatabaseViewer = () => {
             matchesFilter(caseItem.судебный_орган || caseItem.sudebnyj_organ, f.наименованиеСуда) &&
             matchesFilter(calculateDeadline(caseItem), f.срокВыполнения) &&
             matchesFilter(caseItem.исполнитель || caseItem.ispolnitel, f.исполнитель) &&
-            matchesFilter(caseItem.вид || caseItem.vid, f.цельЭкспертизы)
+            matchesFilter(caseItem.вид || caseItem.vid, f.цельЭкспертизы) &&
+            // 👇 Новые фильтры
+            matchesFilter(caseItem.выполнено || caseItem.vypolneno, f.статус) &&
+            matchesFilter(caseItem.дополнение || caseItem.цель, f.цель) &&
+            matchesFilter(caseItem.оплачено || caseItem.oplacheno, f.оплачено)
         );
     });
     
@@ -602,6 +613,95 @@ const DatabaseViewer = () => {
             
             const today = new Date().toLocaleDateString('ru-RU').replace(/\./g, '-');
             saveAs(blob, `Отчет_экспертиз_${today}.xlsx`);
+            
+        } catch (err) {
+            console.error('❌ Ошибка экспорта:', err);
+            alert('Не удалось экспортировать: ' + err.message);
+        }
+    };
+
+    // 👇 ЭКСПОРТ ДЛЯ ВКЛАДКИ "ПЕЧАТЬ" (все колонки)
+    const exportToExcelPrint = async () => {
+        try {
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Отчет_Печать');
+    
+            // Все 11 колонок
+            worksheet.columns = [
+                { header: '№', key: 'num', width: 5 },
+                { header: 'Дата вх письма', key: 'date', width: 20 },
+                { header: 'Номер вх письма', key: 'vhNum', width: 20 },
+                { header: 'Номер дела', key: 'caseNum', width: 15 },
+                { header: 'Наименование суда', key: 'court', width: 35 },
+                { header: 'Срок выполнения', key: 'deadline', width: 28 },
+                { header: 'Исполнитель', key: 'executor', width: 15 },
+                { header: 'Статус', key: 'status', width: 15 },
+                { header: 'Вид экспертизы', key: 'goal', width: 25 },
+                { header: 'Цель', key: 'target', width: 30 },
+                { header: 'Оплачено', key: 'paid', width: 15 }
+            ];
+    
+            // Стиль заголовка
+            const headerRow = worksheet.getRow(1);
+            headerRow.font = { bold: true, size: 12, name: 'Calibri', color: { argb: 'FF000000' } };
+            headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+            headerRow.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            headerRow.height = 22;
+            
+            headerRow.eachCell((cell) => {
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'FF000000' } },
+                    left: { style: 'thin', color: { argb: 'FF000000' } },
+                    bottom: { style: 'thin', color: { argb: 'FF000000' } },
+                    right: { style: 'thin', color: { argb: 'FF000000' } }
+                };
+            });
+    
+            // Заполнение данных
+            filteredCases.forEach((item, index) => {
+                const dateValue = item.дата_поступления || item.дата_начала || item.data_nachala || item.date || item.createdAt || '';
+                const formattedDate = formatShortDate(dateValue);
+                
+                const isExtended = item.prodlen_otmetka === '1' || item.prodlen_otmetka === 1;
+                let deadlineDate = isExtended 
+                    ? (item.prodlen_1 || item.продлено_до || item.дата_окончания || item.data_okonchaniya || '')
+                    : (item.дата_окончания || item.data_okonchaniya || '');
+                const deadlineText = deadlineDate ? `срок до ${formatShortDate(deadlineDate)}` : '-';
+                
+                const row = worksheet.addRow({
+                    num: index + 1,
+                    date: formattedDate,
+                    vhNum: item.входящий_номер || item.vh_nomer || '',
+                    caseNum: item.номер_дела || item.nomer_dela || '',
+                    court: item.судебный_орган || item.sudebnyj_organ || item.судебныйОрган || '',
+                    deadline: deadlineText,
+                    executor: item.исполнитель || item.ispolnitel || '',
+                    status: item.выполнено || item.vypolneno || '-',
+                    goal: item.вид || item.vid || '',
+                    target: item.дополнение || item.цель || '-',
+                    paid: item.оплачено || item.oplacheno || '-'
+                });
+    
+                // Стиль для строк
+                row.eachCell((cell) => {
+                    cell.font = { size: 11, name: 'Calibri', color: { argb: 'FF000000' } };
+                    cell.alignment = { vertical: 'middle', wrapText: true, horizontal: 'left' };
+                    cell.border = {
+                        top: { style: 'thin', color: { argb: 'FF000000' } },
+                        left: { style: 'thin', color: { argb: 'FF000000' } },
+                        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+                        right: { style: 'thin', color: { argb: 'FF000000' } }
+                    };
+                });
+            });
+    
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { 
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+            });
+            
+            const today = new Date().toLocaleDateString('ru-RU').replace(/\./g, '-');
+            saveAs(blob, `Отчет_Печать_${today}.xlsx`);
             
         } catch (err) {
             console.error('❌ Ошибка экспорта:', err);
@@ -1053,7 +1153,7 @@ const DatabaseViewer = () => {
                             <div className="report-header">
                                 <h3>📊 Отчет по экспертизам</h3>
                                 <div className="report-actions">
-                                    <button className="btn-export-excel" onClick={exportToExcel}>
+                                    <button className="btn-export-excel" onClick={exportToExcelPrint}>
                                         📥 Экспорт в Excel
                                     </button>
                     
@@ -1150,6 +1250,15 @@ const DatabaseViewer = () => {
                                             <input 
                                                 type="text" 
                                                 className="filter-input" 
+                                                placeholder="Статус" 
+                                                value={reportFilters.статус} 
+                                                onChange={(e) => handleFilterChange('статус', e.target.value)} 
+                                            />
+                                        </div>
+                                        <div className="filter-group">
+                                            <input 
+                                                type="text" 
+                                                className="filter-input" 
                                                 placeholder="Вид экспертизы" 
                                                 list="goals-list"
                                                 value={reportFilters.цельЭкспертизы} 
@@ -1160,6 +1269,24 @@ const DatabaseViewer = () => {
                                                     <option key={idx} value={goal} />
                                                 ))}
                                             </datalist>
+                                        </div>
+                                        <div className="filter-group">
+                                            <input 
+                                                type="text" 
+                                                className="filter-input" 
+                                                placeholder="Цель" 
+                                                value={reportFilters.цель} 
+                                                onChange={(e) => handleFilterChange('цель', e.target.value)} 
+                                            />
+                                        </div>
+                                        <div className="filter-group">
+                                            <input 
+                                                type="text" 
+                                                className="filter-input" 
+                                                placeholder="Оплачено" 
+                                                value={reportFilters.оплачено} 
+                                                onChange={(e) => handleFilterChange('оплачено', e.target.value)} 
+                                            />
                                         </div>
                                         <div className="filter-actions">
                                             <button className="btn-clear-filters" onClick={clearAllFilters}>
@@ -1213,10 +1340,17 @@ const DatabaseViewer = () => {
                                                     <td>{caseItem.судебный_орган || caseItem.sudebnyj_organ || '-'}</td>
                                                     <td>{calculateDeadline(caseItem)}</td>
                                                     <td>{caseItem.исполнитель || caseItem.ispolnitel || '-'}</td>
-                                                    <td>{'-'}</td>
+                                                    
+                                                    {/* 👇 Под "Статус" выводим vypolneno */}
+                                                    <td>{caseItem.выполнено || '-'}</td>
+                                                    
                                                     <td>{caseItem.вид || caseItem.vid || '-'}</td>
-                                                    <td>{'-'}</td>
-                                                    <td>{'-'}</td>
+                                                    
+                                                    {/* 👇 Под "Цель" выводим vypolneno (если нужно) или прочерк */}
+                                                    <td>{caseItem.дополнение || '-'}</td>
+                                                    
+                                                    {/* 👇 Под "Оплачено" выводим oplacheno */}
+                                                    <td>{caseItem.оплачено || '-'}</td>
                                                 </tr>
                                             ))}
                                         </tbody>

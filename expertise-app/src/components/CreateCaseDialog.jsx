@@ -97,25 +97,70 @@ const getFileIcon = (fileName) => {
         }));
     };
 
-    const handleSave = () => {
-        const caseData = {
-            ...formData,
-            // Сохранение 30 дней
-            kolichestvo_dnej: 30, 
-            // 👇 Конвертируем ВСЕ даты в русский формат перед отправкой
-            датаНачала: formatRussianDate(formData.датаНачала) || formData.датаНачала,
-            датаОкончания: formatRussianDate(formData.датаОкончания) || formData.датаОкончания,
-            датаОсмотра: formatRussianDate(formData.датаОсмотра) || formData.датаОсмотра,
-            датаОпределения: formatRussianDate(formData.датаОпределения) || formData.датаОпределения,
+    const handleSave = async () => {
+        try {
+            const caseData = {
+                ...formData,
+                kolichestvo_dnej: 30,
+                датаНачала: formatRussianDate(formData.датаНачала) || formData.датаНачала,
+                датаОкончания: formatRussianDate(formData.датаОкончания) || formData.датаОкончания,
+                датаОсмотра: formatRussianDate(formData.датаОсмотра) || formData.датаОсмотра,
+                датаОпределения: formatRussianDate(formData.датаОпределения) || formData.датаОпределения,
+                id: Date.now(),
+                createdAt: new Date().toISOString(),
+                createdBy: userData?.username || 'unknown'
+            };
             
-            id: Date.now(),
-            createdAt: new Date().toISOString(),
-            createdBy: userData?.username || 'unknown'
-        };
-        
-        console.log('📦 Отправляем в БД:', caseData);
-        onSave(caseData);
-        onClose();
+            console.log('📦 Отправляем в БД:', caseData);
+            
+            // 1️⃣ Сначала сохраняем дело в БД
+            await onSave(caseData);
+            
+            // 2️⃣ Если есть номер дела — создаём папку
+            if (caseData.номерДела) {
+                try {
+                    const API_URL = process.env.REACT_APP_API_URL || 'http://192.168.40.52:5000';
+                    
+                    const response = await fetch(`${API_URL}/api/create-case-folder`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            caseNumber: caseData.номерДела,
+                            court: formData.судебныйОрган 
+                        })
+                    });
+                    
+                    const folderData = await response.json();
+                    
+                    if (folderData.success) {
+                        console.log('📁 Папка дела создана:', folderData.folderPath);
+                        // 👇 Автоматически открываем файловый менеджер для этого дела
+                        setFolderManager({
+                            visible: true,
+                            loading: false,
+                            currentPath: folderData.folderPath,
+                            relativePath: '',
+                            files: [],
+                            breadcrumbs: [],
+                            error: null,
+                            court: formData.судебныйОрган,
+                            folderName: caseData.номерДела
+                        });
+                        // Загружаем содержимое только что созданной папки
+                        await loadFolderContent(formData.судебныйОрган, caseData.номерДела, '');
+                    }
+                } catch (err) {
+                    console.warn('⚠️ Не удалось создать папку дела:', err.message);
+                    // Не прерываем процесс, если папка не создалась
+                }
+            }
+            
+            onClose();
+            
+        } catch (err) {
+            console.error('❌ Ошибка сохранения:', err);
+            alert('Не удалось сохранить дело: ' + err.message);
+        }
     };
     
     // Функция загрузки судей
@@ -242,10 +287,10 @@ const getFileIcon = (fileName) => {
     // Открытие файлового менеджера
     const openFolderManager = async () => {
         const court = formData.судебныйОрган?.trim();
-        const folderName = formData.папка?.trim();
+        const caseNumber = formData.номерДела?.trim();
         
-        if (!court) {
-            alert('⚠️ Сначала выберите судебный орган');
+        if (!caseNumber) {
+            alert('⚠️ Сначала введите номер дела');
             return;
         }
         
@@ -258,15 +303,28 @@ const getFileIcon = (fileName) => {
             breadcrumbs: [],
             error: null,
             court,
-            folderName
+            folderName: caseNumber  // 👈 Используем номер дела как имя папки
         });
         
-        await loadFolderContent(court, folderName, '');
+        // Загружаем содержимое папки дела
+        await loadFolderContent(court, caseNumber, '');
     };
     
-    // Загрузка содержимого папки
-    const loadFolderContent = async (court, folderName, subPath) => {
-        setFolderManager(prev => ({ ...prev, loading: true, error: null }));
+    // Загрузка содержимого папки дела
+    const loadFolderContent = async (court, caseNumber, subPath) => {
+        // 👇 Если путь не изменился, не загружаем повторно
+        if (folderManager.relativePath === subPath && folderManager.files.length > 0) {
+            console.log('ℹ️ Уже находимся в этой папке, пропускаем загрузку');
+            return;
+        }
+        
+        setFolderManager(prev => ({ 
+            ...prev, 
+            loading: true, 
+            error: null,
+            // 👇 Сбрасываем файлы только если меняем папку
+            files: prev.relativePath !== subPath ? [] : prev.files
+        }));
         
         try {
             const API_URL = process.env.REACT_APP_API_URL || 'http://192.168.40.52:5000';
@@ -274,7 +332,12 @@ const getFileIcon = (fileName) => {
             const response = await fetch(`${API_URL}/api/navigate-folder`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ court, folderName, subPath })
+                body: JSON.stringify({ 
+                    court, 
+                    folderName: caseNumber,
+                    subPath,
+                    isCaseFolder: true
+                })
             });
             
             const data = await response.json();
@@ -300,6 +363,12 @@ const getFileIcon = (fileName) => {
     // Переход в папку
     const navigateToFolder = (file) => {
         if (!file.isDirectory) return;
+        
+        // 👇 Проверяем, не находимся ли мы уже в этой папке
+        if (folderManager.relativePath === file.relativePath) {
+            return; // Уже в этой папке, ничего не делаем
+        }
+        
         loadFolderContent(
             folderManager.court,
             folderManager.folderName,
@@ -961,23 +1030,30 @@ const getFileIcon = (fileName) => {
                                 </div>
 
                                 <div className="form-row">
-                                    <label className="field-label">папка</label>
+                                    <label className="field-label">папка дела</label>
                                     <div className="input-with-button">
                                         <button 
                                             className="btn-action"
                                             type="button"
                                             onClick={openFolderManager}
+                                            disabled={!formData.номерДела}
+                                            title={!formData.номерДела ? 'Сначала введите номер дела' : 'Открыть папку дела'}
                                         >
-                                            папка
+                                            📁 папка
                                         </button>
                                         <input
                                             type="text"
                                             className="form-input"
-                                            placeholder="Название папки"
-                                            value={formData.папка}
-                                            onChange={(e) => handleInputChange('папка', e.target.value)}
+                                            placeholder="Номер дела (папка создастся автоматически)"
+                                            value={formData.номерДела}
+                                            onChange={(e) => handleInputChange('номерДела', e.target.value)}
                                         />                                        
                                     </div>
+                                    {formData.номерДела && (
+                                        <small className="helper-text">
+                                            Папка: <code>G:\экспертизы\дела\{formData.номерДела}\</code>
+                                        </small>
+                                    )}
                                 </div>
                                 {/* 👇 МОДАЛЬНОЕ ОКНО ПРОСМОТРА ПАПКИ */}
                                 {/* 👇 ФАЙЛОВЫЙ МЕНЕДЖЕР */}
@@ -1021,17 +1097,25 @@ const getFileIcon = (fileName) => {
                     <span 
                         className="breadcrumb-item"
                         onClick={() => loadFolderContent(folderManager.court, folderManager.folderName, '')}
+                        style={{ cursor: 'pointer', fontWeight: 'bold' }}
                     >
                         📁 Корень
                     </span>
                     {folderManager.breadcrumbs.map((crumb, index) => {
                         const crumbPath = folderManager.breadcrumbs.slice(0, index + 1).join('\\');
+                        const isLast = index === folderManager.breadcrumbs.length - 1;
+                        
                         return (
-                            <span key={index}>
-                                <span className="breadcrumb-sep">/</span>
+                            <span key={`${index}-${crumb}`}>
+                                <span className="breadcrumb-sep"> / </span>
                                 <span 
-                                    className="breadcrumb-item"
-                                    onClick={() => loadFolderContent(folderManager.court, folderManager.folderName, crumbPath)}
+                                    className={`breadcrumb-item ${isLast ? 'current' : ''}`}
+                                    onClick={() => !isLast && loadFolderContent(folderManager.court, folderManager.folderName, crumbPath)}
+                                    style={{ 
+                                        cursor: isLast ? 'default' : 'pointer',
+                                        fontWeight: isLast ? 'bold' : 'normal',
+                                        color: isLast ? '#0078d4' : 'inherit'
+                                    }}
                                 >
                                     {crumb}
                                 </span>
